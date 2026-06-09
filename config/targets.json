@@ -1,0 +1,23 @@
+{
+  "locations": ["Hyderabad", "Bengaluru", "Pune"],
+  "roleQueries": [
+    "Full Stack Developer React Node.js",
+    "React Frontend Engineer TypeScript",
+    "Node.js Developer React",
+    "MERN Stack Developer",
+    "UI Dashboard Engineer React",
+    "AI Full Stack Developer React FastAPI"
+  ],
+  "portalRules": {
+    "linkedin": {
+      "avoidEasyApply": true,
+      "postedWithin": "r3600",
+      "jobType": "Full Time",
+      "experienceLevels": ["Associate", "Mid-Senior"]
+    },
+    "naukri": {
+      "sort": "freshness",
+      "useScreeningDefaults": true
+    }
+  }
+}

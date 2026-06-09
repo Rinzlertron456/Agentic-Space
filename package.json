@@ -1,0 +1,39 @@
+{
+  "name": "mobile-job-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mobile-ready, approval-gated job hunting and resume tailoring toolkit.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:init": "python scripts/store.py init",
+    "runner:discover": "tsx src/runner/discover.ts",
+    "runner:tailor": "tsx src/runner/tailor.ts",
+    "logs:sync": "python scripts/sync_logs.py",
+    "scheduler:start": "tsx src/runner/scheduler.ts",
+    "ui:check": "node scripts/check_ui.mjs"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.52.0",
+    "next": "^15.3.3",
+    "playwright": "^1.52.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.30",
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.6",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.2"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "python": ">=3.11"
+  }
+}

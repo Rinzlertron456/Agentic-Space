@@ -1,0 +1,15 @@
+.next/
+node_modules/
+.env
+.data/*.sqlite
+.data/*.sqlite-shm
+.data/*.sqlite-wal
+artifacts/resumes/*
+artifacts/messages/*
+artifacts/logs/*
+!artifacts/resumes/.gitkeep
+!artifacts/messages/.gitkeep
+!artifacts/logs/.gitkeep
+coverage/
+playwright-report/
+test-results/
