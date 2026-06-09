@@ -10,8 +10,6 @@ services:
     buildCommand: npm install && npm run build
     startCommand: sh scripts/start.sh
     envVars:
-      - key: ADMIN_PASSWORD
-        value: "change-this-before-deploy"
       - key: JOB_AGENT_DB_PATH
         value: "/app/.data/job_agent.sqlite"
       - key: MASTER_RESUME_DOCX
