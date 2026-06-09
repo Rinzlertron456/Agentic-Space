@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: Job-Hunting-Agent
+    env: docker
+    plan: starter
+    region: oregon
+    branch: main
+    dockerContext: .
+    dockerfilePath: Dockerfile
+    buildCommand: npm install && npm run build
+    startCommand: sh scripts/start.sh
+    envVars:
+      - key: ADMIN_PASSWORD
+        value: "change-this-before-deploy"
+      - key: JOB_AGENT_DB_PATH
+        value: "/app/.data/job_agent.sqlite"
+      - key: MASTER_RESUME_DOCX
+        value: "/app/input/Full_Stack_AI_Developer_Resume.docx"
+      - key: RESUME_ARTIFACT_DIR
+        value: "/app/artifacts/resumes"
+      - key: LOG_ARTIFACT_DIR
+        value: "/app/artifacts/logs"
