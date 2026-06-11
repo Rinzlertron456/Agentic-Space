@@ -1,0 +1,33 @@
+{
+  "project": "Agentic Space — Job Hunting Assistant",
+  "status": "all_7_phases_complete",
+  "git_commit": "1bfe96b",
+  "git_branch": "master",
+  "packages": 3,
+  "source_files": "~71",
+  "typescript_errors": 0,
+  "servers": {
+    "backend": { "port": 3001, "framework": "Express" },
+    "frontend": { "port": 5173, "framework": "React + Vite + PWA" }
+  },
+  "phases": [
+    { "phase": 1, "name": "Monorepo scaffold", "files": "~45", "key_modules": ["Express backend", "React PWA", "shared types", "pnpm workspace"] },
+    { "phase": 1.5, "name": "Career sites DB", "files": 3, "key_modules": ["90 Indian companies", "ATS detection configs"] },
+    { "phase": 2, "name": "Resume analyzer", "files": 3, "key_modules": ["PDF/DOCX parser", "Ollama extractor", "JSON resume store"] },
+    { "phase": 3, "name": "Job search engine", "files": 5, "key_modules": ["4 Playwright agents", "LinkedIn", "Naukri", "Web search", "Company portals", "Orchestrator"] },
+    { "phase": 4, "name": "RAG job matching", "files": 2, "key_modules": ["Cosine similarity", "Ollama embeddings", "60/40 scoring", "Batch processing"] },
+    { "phase": 5, "name": "Dashboard UI", "files": 5, "key_modules": ["Frontend-backend wiring", "Batch actions", "Filters", "Job detail"] },
+    { "phase": 6, "name": "Networking tools", "files": 3, "key_modules": ["Ollama messages", "Referral requests", "HR emails", "Gmail compose"] },
+    { "phase": 7, "name": "Logging + Deployment", "files": 5, "key_modules": ["Notion sync", "Structured logs API", "Vercel config", "Render config"] }
+  ],
+  "reports": [
+    "docs/ARCHITECTURE_PLAN.md",
+    "docs/PHASE1_REPORT.md",
+    "docs/PHASE2_REPORT.md",
+    "docs/PHASE3_REPORT.md",
+    "docs/PHASE4_REPORT.md",
+    "docs/PHASE5_REPORT.md",
+    "docs/PHASE6_REPORT.md",
+    "docs/PHASE7_REPORT.md"
+  ]
+}
