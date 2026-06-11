@@ -1,18 +1,25 @@
 import type { JobListing } from "@agentic-space/shared";
 import { MatchBadge } from "./MatchBadge";
+import { useNavigate } from "react-router-dom";
 
 interface Props {
   job: JobListing;
   selected: boolean;
   onToggleSelect: (id: string) => void;
+  onViewDetail?: (id: string) => void;
 }
 
-export function JobCard({ job, selected, onToggleSelect }: Props) {
+export function JobCard({ job, selected, onToggleSelect, onViewDetail }: Props) {
+  const navigate = useNavigate();
   const daysAgo = Math.floor((Date.now() - new Date(job.postedDate).getTime()) / (1000 * 60 * 60 * 24));
+  const handleDetail = () => {
+    if (onViewDetail) onViewDetail(job.id);
+    else navigate(`/jobs/${job.id}`);
+  };
   return (
-    <div className={`card transition-all ${selected ? "ring-2 ring-yellow-400" : ""}`}>
+    <div className={`card transition-all cursor-pointer ${selected ? "ring-2 ring-yellow-400" : "hover:shadow-brutalLg"}`} onClick={handleDetail}>
       <div className="flex items-start gap-3">
-        <button onClick={() => onToggleSelect(job.id)} className={`mt-1 w-5 h-5 border-2 border-black flex-shrink-0 flex items-center justify-center ${selected ? "bg-yellow-400" : "bg-white"}`}>
+        <button onClick={(e) => { e.stopPropagation(); onToggleSelect(job.id); }} className={`mt-1 w-5 h-5 border-2 border-black flex-shrink-0 flex items-center justify-center ${selected ? "bg-yellow-400" : "bg-white"}`}>
           {selected && <span className="text-sm font-bold">✓</span>}
         </button>
         <div className="flex-1 min-w-0">
@@ -25,12 +32,14 @@ export function JobCard({ job, selected, onToggleSelect }: Props) {
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             <span className="badge bg-gray-100 text-[10px]">{daysAgo === 0 ? "Today" : `${daysAgo}d ago`}</span>
             {job.isEasyApply && <span className="badge bg-green-100 text-[10px]">Easy Apply</span>}
+            {job.source !== "linkedin" && job.source !== "naukri" && (
+              <span className="badge bg-cyan-100 text-[10px]">{job.source}</span>
+            )}
           </div>
         </div>
       </div>
       <div className="flex gap-2 mt-3 pt-3 border-t-2 border-black">
-        <a href={job.applyUrl} target="_blank" rel="noopener noreferrer" className="btn-primary btn-small flex-1 text-center">Apply ↗</a>
-        <button className="btn-secondary btn-small flex-1">Tailor</button>
+        <a href={job.applyUrl} target="_blank" rel="noopener noreferrer" className="btn-primary btn-small flex-1 text-center" onClick={(e) => e.stopPropagation()}>Apply ↗</a>
       </div>
     </div>
   );

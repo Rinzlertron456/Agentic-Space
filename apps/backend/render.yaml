@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: agentic-space-backend
+    runtime: node
+    region: singapore
+    plan: free
+    buildCommand: npm install && npm run typecheck -w packages/shared && npm run build -w apps/backend
+    startCommand: npm run start -w apps/backend
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: FRONTEND_URL
+        value: https://agentic-space.vercel.app
+      - key: OLLAMA_HOST
+        value: http://localhost:11434
+      - key: BROWSER_HEADLESS
+        value: "true"
+      - key: PORT
+        value: "3001"

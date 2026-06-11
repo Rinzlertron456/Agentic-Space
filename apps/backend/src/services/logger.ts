@@ -42,5 +42,9 @@ export function log(
     .join("\n");
 
   fs.appendFileSync(logFile, mdLine + "\n");
+
+  // Sync to Notion (async, non-blocking)
+  import("./notion.js").then((m) => m.syncToNotion(entry)).catch(() => {});
+
   return entry;
 }

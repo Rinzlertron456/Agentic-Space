@@ -3,6 +3,7 @@ import { DEFAULT_SEARCH_FILTERS } from "@agentic-space/shared";
 import { v4 as uuidv4 } from "uuid";
 import { log } from "./logger.js";
 import { getAllKnownCareerUrls } from "../agents/company-site.js";
+import { searchWithRag } from "./matcher.js";
 
 // Agent imports
 import { searchLinkedIn } from "../agents/linkedin.js";
@@ -18,14 +19,12 @@ export async function searchJobs(
   const results: JobListing[] = [];
   const errors: string[] = [];
 
-  // Merge with defaults
   const mergedFilters: SearchFilters = {
     ...DEFAULT_SEARCH_FILTERS,
     ...filters,
     sources: filters.sources || DEFAULT_SEARCH_FILTERS.sources,
   };
 
-  // Load resume for keyword generation if available
   const resume = getResume(resumeId);
   const resumeKeywords = resume?.skills?.map((s) => s.name) || [];
   const searchKeywords =
@@ -42,9 +41,7 @@ export async function searchJobs(
 
   console.log(`[Orchestrator] Searching: "${searchKeywords.join(", ")}" in ${locations.join(", ")}`);
 
-  // Dispatch to all active sources in parallel
   const searches: Promise<void>[] = [];
-
   for (const source of mergedFilters.sources) {
     switch (source) {
       case "linkedin":
@@ -63,53 +60,36 @@ export async function searchJobs(
     }
   }
 
-  // Wait for all searches (with individual timeouts via Promise.allSettled)
   await Promise.allSettled(searches);
 
   // Deduplicate by URL
   const seen = new Set<string>();
   const unique = results.filter((job) => {
     if (seen.has(job.applyUrl) || !job.applyUrl) {
-      if (job.source === "company_portal") return true; // Keep career site entries
+      if (job.source === "company_portal") return true;
       return false;
     }
     seen.add(job.applyUrl);
     return true;
   });
 
-  // Compute match scores (simple keyword overlap)
-  for (const job of unique) {
-    if (job.source !== "company_portal") {
-      const jobText = `${job.title} ${job.description}`.toLowerCase();
-      const matched = searchKeywords.filter((kw) =>
-        jobText.includes(kw.toLowerCase())
-      ).length;
-      job.matchScore = Math.min(100, Math.round((matched / Math.max(searchKeywords.length, 1)) * 100));
-    }
-  }
-
-  // Sort by match score descending, then by date
-  unique.sort((a, b) => b.matchScore - a.matchScore);
+  // RAG scoring: semantic + keyword combined
+  const { results: scoredJobs } = await searchWithRag(resumeId, unique);
 
   const duration = Date.now() - startTime;
 
   log(
     "job_search",
-    `Found ${unique.length} jobs across ${mergedFilters.sources.length} sources in ${duration}ms`,
-    {
-      sources: mergedFilters.sources,
-      resultsPerSource: {
-        total: unique.length,
-      },
-    },
+    `Found ${scoredJobs.length} jobs across ${mergedFilters.sources.length} sources in ${duration}ms (with RAG scoring)`,
+    { sources: mergedFilters.sources },
     undefined,
     resumeId
   );
 
   return {
     success: true,
-    totalResults: unique.length,
-    results: unique.slice(0, mergedFilters.maxResults),
+    totalResults: scoredJobs.length,
+    results: scoredJobs.slice(0, mergedFilters.maxResults),
     searchDuration: duration,
     errors,
   };
