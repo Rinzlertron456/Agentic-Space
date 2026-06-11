@@ -1,0 +1,22 @@
+{
+  "name": "agentic-space",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Autonomous job hunting agent with RAG-based resume analysis and multi-portal job search",
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w apps/backend\" \"npm run dev -w apps/frontend\"",
+    "typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w apps/backend && npm run typecheck -w apps/frontend",
+    "clean": "npm run clean -w packages/shared && npm run clean -w apps/backend && npm run clean -w apps/frontend"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0",
+    "typescript": "^5.5.0"
+  }
+}
