@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd ../.. && npm install && npm run typecheck -w packages/shared && npm run build -w apps/frontend",
+  "buildCommand": "cd ../.. && npm run typecheck -w packages/shared && npm run build -w apps/frontend",
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
