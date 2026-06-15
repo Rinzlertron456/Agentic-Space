@@ -1,4 +1,4 @@
-import { JobSource } from "./job";
+import { JobSource } from "./job.js";
 
 export interface SearchFilters {
   keywords: string[];
