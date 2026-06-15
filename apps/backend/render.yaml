@@ -4,7 +4,7 @@ services:
     runtime: node
     region: singapore
     plan: free
-    buildCommand: npm install && npx playwright install chromium && npm run typecheck -w packages/shared && npm run build -w apps/backend
+    buildCommand: npm install --include=dev && npx playwright install chromium && npm run typecheck -w packages/shared && npm run build -w apps/backend
     startCommand: npm run start -w apps/backend
     envVars:
       - key: NODE_ENV
