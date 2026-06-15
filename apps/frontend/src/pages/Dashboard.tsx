@@ -94,7 +94,11 @@ export default function Dashboard() {
                 {/* Actions */}
                 <div className="flex flex-col gap-1.5 shrink-0">
                   <button
-                    onClick={() => navigate("/jobs")}
+                    onClick={() =>
+                      navigate("/jobs", {
+                        state: { resumeId: resume.id, autoSearch: true },
+                      })
+                    }
                     className="btn-primary btn-small"
                   >
                     Find Jobs

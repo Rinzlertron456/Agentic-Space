@@ -1,5 +1,5 @@
-import { useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useCallback, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { JobCard } from "../components/JobCard";
 import { BatchActions } from "../components/BatchActions";
 import { FilterBar } from "../components/FilterBar";
@@ -7,19 +7,51 @@ import { useJobs } from "../hooks/useJobs";
 import { useBatchSelect } from "../hooks/useBatchSelect";
 import { useResume } from "../hooks/useResume";
 import type { SearchFilters } from "@agentic-space/shared";
+import { DEFAULT_SEARCH_FILTERS } from "@agentic-space/shared";
 
 export default function JobBoard() {
   const { jobs, loading, actionLoading, error, search, batchAction, clear } = useJobs();
   const { getFirst } = useResume();
   const navigate = useNavigate();
+  const location = useLocation();
   const batch = useBatchSelect();
   const firstResume = getFirst();
   const resumeId = firstResume?.id || "";
   const hasJobs = jobs.length > 0;
+  const autoSearchTriggered = useRef(false);
+
+  // Check if we arrived from Dashboard with autoSearch intent
+  const navState = location.state as { resumeId?: string; autoSearch?: boolean } | null;
 
   useEffect(() => {
     if (!firstResume) navigate("/");
   }, [firstResume, navigate]);
+
+  // Auto-search on mount when navigated from Dashboard "Find Jobs"
+  useEffect(() => {
+    if (
+      navState?.autoSearch &&
+      resumeId &&
+      !autoSearchTriggered.current &&
+      !loading &&
+      !hasJobs
+    ) {
+      autoSearchTriggered.current = true;
+
+      // Build default filters — let the backend use resume skills as keywords
+      const preferredRoles = firstResume?.preferredRoles || [];
+      const autoKeywords = preferredRoles.length > 0
+        ? preferredRoles.slice(0, 3)
+        : []; // empty = backend uses resume skills
+
+      const filters: SearchFilters = {
+        ...DEFAULT_SEARCH_FILTERS,
+        keywords: autoKeywords,
+        sources: ["linkedin", "naukri", "indeed", "google_jobs", "company_portal"],
+      };
+      search(resumeId, filters);
+    }
+  }, [navState, resumeId, loading, hasJobs, firstResume, search]);
 
   const handleSearch = useCallback(
     (filters: SearchFilters) => {
@@ -103,7 +135,10 @@ export default function JobBoard() {
               job={job}
               selected={batch.isSelected(job.id)}
               onToggleSelect={batch.toggle}
-              onViewDetail={(id) => navigate(`/jobs/${id}`)}
+              onViewDetail={(jobId) => {
+                const jobData = jobs.find((j) => j.id === jobId);
+                navigate(`/jobs/${jobId}`, { state: { job: jobData } });
+              }}
             />
           ))}
         </div>

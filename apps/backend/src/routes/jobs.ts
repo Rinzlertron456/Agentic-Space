@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { searchJobs } from "../services/search-orchestrator.js";
+import { tailorResume } from "../services/tailor.js";
 import { log } from "../services/logger.js";
 
 export const jobsRouter = Router();
@@ -133,12 +134,21 @@ jobsRouter.post("/batch", async (req: Request, res: Response) => {
           break;
         case "tailor":
           // Trigger resume tailoring for this job
-          results.push({
-            jobId,
-            success: true,
-            message: "Tailoring queued",
-            tailoredResumeUrl: resumeId ? `/api/tailor/${jobId}/download` : undefined,
-          });
+          if (resumeId) {
+            const tailorResult = await tailorResume(resumeId, jobId);
+            results.push({
+              jobId,
+              success: tailorResult.success,
+              message: tailorResult.success ? "Tailored" : (tailorResult.error || "Tailoring failed"),
+              tailoredResumeUrl: tailorResult.downloadUrl,
+            });
+          } else {
+            results.push({
+              jobId,
+              success: false,
+              message: "resumeId required for tailoring",
+            });
+          }
           break;
         case "save":
           results.push({

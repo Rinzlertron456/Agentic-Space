@@ -1,6 +1,7 @@
 import { embed } from "./ollama.js";
 import type { JobListing } from "@agentic-space/shared";
 import { getResume } from "./resume-store.js";
+import { buildResumeText } from "./resume-text.js";
 import { log } from "./logger.js";
 
 export function cosineSimilarity(a: number[], b: number[]): number {
@@ -15,18 +16,10 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   return denom === 0 ? 0 : dot / denom;
 }
 
-function buildResumeText(resumeId: string): string {
+function getResumeTextForEmbedding(resumeId: string): string {
   const resume = getResume(resumeId);
   if (!resume) return "";
-  const parts: string[] = [
-    resume.summary,
-    resume.currentRole,
-    ...resume.skills.map((s) => `${s.name} (${s.proficiency})`),
-    ...resume.experience.map((e) => `${e.title} at ${e.company}: ${e.highlights.join(". ")}`),
-    ...resume.education.map((e) => `${e.degree} in ${e.field} from ${e.institution}`),
-    ...resume.preferredRoles,
-  ];
-  return parts.filter(Boolean).join(". ").slice(0, 4000);
+  return buildResumeText(resume, { maxLength: 4000, includeCategory: false });
 }
 
 function buildJobText(job: JobListing): string {
@@ -58,7 +51,7 @@ export async function matchResumeToJob(
     : 0;
   let semanticScore = 0;
   try {
-    const resumeText = buildResumeText(resumeId);
+    const resumeText = getResumeTextForEmbedding(resumeId);
     const jobTextFull = buildJobText(job);
     if (resumeText && jobTextFull) {
       const [resumeEmbedding, jobEmbedding] = await Promise.all([

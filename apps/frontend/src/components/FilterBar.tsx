@@ -35,14 +35,19 @@ export function FilterBar({ onSearch, loading }: Props) {
           type="text"
           value={keywords}
           onChange={(e) => setKeywords(e.target.value)}
-          placeholder="Job keywords (comma-separated)"
+          placeholder="Job keywords (leave empty to use resume skills)"
           className="input flex-1"
-          onKeyDown={(e) => e.key === "Enter" && keywords.trim() && handleSearch()}
+          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
         />
-        <button onClick={handleSearch} disabled={loading || !keywords.trim()} className="btn-primary">
+        <button onClick={handleSearch} disabled={loading} className="btn-primary">
           {loading ? "..." : "Search"}
         </button>
       </div>
+      {!keywords.trim() && (
+        <p className="text-[10px] opacity-50 mt-1">
+          💡 Leave empty to auto-search using your resume skills
+        </p>
+      )}
 
       <button onClick={() => setShowAdvanced(!showAdvanced)} className="text-xs font-display font-bold mt-2 underline">
         {showAdvanced ? "Hide" : "Show"} advanced filters
