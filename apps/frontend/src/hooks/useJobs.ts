@@ -8,22 +8,25 @@ export function useJobs() {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const search = useCallback(async (resumeId: string, filters: SearchFilters) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await api.searchJobs(resumeId, filters);
-      if (result.success) {
-        setJobs(result.results);
-      } else {
-        setError(result.errors?.join(", ") || "Search failed");
+  const search = useCallback(
+    async (resumeId: string, filters: SearchFilters) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await api.searchJobs(resumeId, filters);
+        if (result.success) {
+          setJobs(result.results);
+        } else {
+          setError(result.errors?.join(", ") || "Search failed");
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Search failed");
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Search failed");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [],
+  );
 
   const batchAction = useCallback(async (jobIds: string[], action: string) => {
     setActionLoading(true);
@@ -42,8 +45,8 @@ export function useJobs() {
         } else if (action === "save") {
           setJobs((prev) =>
             prev.map((j) =>
-              jobIds.includes(j.id) ? { ...j, status: "saved" as const } : j
-            )
+              jobIds.includes(j.id) ? { ...j, status: "saved" as const } : j,
+            ),
           );
         }
       }

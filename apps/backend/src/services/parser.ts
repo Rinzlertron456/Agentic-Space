@@ -2,13 +2,18 @@ import fs from "fs";
 
 type PDFParseFn = (buffer: Buffer) => Promise<{ text: string }>;
 
-export async function parseResume(filePath: string, mimeType: string): Promise<string> {
+export async function parseResume(
+  filePath: string,
+  mimeType: string,
+): Promise<string> {
   try {
     const buffer = fs.readFileSync(filePath);
 
     if (mimeType === "application/pdf") {
       try {
-        const pdfParse = (await import("pdf-parse")) as unknown as PDFParseFn;
+        const pdfModule = await import("pdf-parse");
+        const pdfParse = (pdfModule.default ||
+          pdfModule) as unknown as PDFParseFn;
         const data = await pdfParse(buffer);
         return data.text;
       } catch (pdfErr) {
@@ -18,7 +23,8 @@ export async function parseResume(filePath: string, mimeType: string): Promise<s
     }
 
     if (
-      mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      mimeType ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
       mimeType === "application/msword"
     ) {
       try {

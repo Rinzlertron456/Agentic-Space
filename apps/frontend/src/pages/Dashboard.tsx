@@ -1,52 +1,11 @@
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ResumeUpload } from "../components/ResumeUpload";
 import { useResume } from "../hooks/useResume";
-import { api } from "../services/api";
-
-interface ResumeSummary {
-  id: string;
-  fileName: string;
-  uploadDate: string;
-  skillCount: number;
-  experienceCount: number;
-  currentRole: string;
-  preferredRoles: string[];
-}
 
 export default function Dashboard() {
   const { resumes, uploading, error, upload, remove } = useResume();
   const navigate = useNavigate();
-  const [storedResumes, setStoredResumes] = useState<ResumeSummary[]>([]);
-  const [loadingStored, setLoadingStored] = useState(false);
-
-  // Fetch stored resumes on mount
-  useEffect(() => {
-    async function fetchStored() {
-      setLoadingStored(true);
-      try {
-        const data: any = await api.getResume("");
-        if (data.success) {
-          setStoredResumes(data.resumes);
-        }
-      } catch {
-        // Backend might not be running
-      } finally {
-        setLoadingStored(false);
-      }
-    }
-    fetchStored();
-  }, [resumes]);
-
-  const allResumes = storedResumes.length > 0 ? storedResumes : resumes.map((r) => ({
-    id: r.id,
-    fileName: r.fileName,
-    uploadDate: r.uploadDate,
-    skillCount: r.skills.length,
-    experienceCount: r.experience.length,
-    currentRole: r.currentRole,
-    preferredRoles: r.preferredRoles,
-  }));
+  const allResumes = resumes;
 
   return (
     <div className="space-y-4">
@@ -82,10 +41,6 @@ export default function Dashboard() {
           <h3 className="font-display font-bold text-sm">
             Uploaded Resumes ({allResumes.length})
           </h3>
-
-          {loadingStored && (
-            <p className="text-xs opacity-60">Loading stored resumes...</p>
-          )}
 
           {allResumes.map((resume, idx) => (
             <div key={resume.id || idx} className="card">
@@ -157,7 +112,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {allResumes.length === 0 && !uploading && !loadingStored && (
+      {allResumes.length === 0 && !uploading && (
         <div className="text-center py-8">
           <span className="text-3xl block mb-2">📄</span>
           <p className="text-sm opacity-60">No resumes uploaded yet</p>

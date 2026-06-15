@@ -28,6 +28,8 @@ export const api = {
     return res.json();
   },
 
+  getResumes: () =>
+    request<{ success: boolean; count: number; resumes: any[] }>("/resume"),
   getResume: (id: string) => request(`/resume/${id}`),
   deleteResume: (id: string) => request(`/resume/${id}`, { method: "DELETE" }),
 

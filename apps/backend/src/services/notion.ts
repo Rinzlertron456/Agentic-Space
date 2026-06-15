@@ -60,7 +60,17 @@ function buildProperties(entry: LogEntry): NotionPageProperties {
 }
 
 export async function syncToNotion(entry: LogEntry): Promise<boolean> {
-  if (!config.notion.token || !config.notion.databaseId) {
+  const validDatabaseId =
+    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+  if (
+    !config.notion.token ||
+    !config.notion.databaseId ||
+    !validDatabaseId.test(config.notion.databaseId)
+  ) {
+    console.warn("[Notion] Invalid Notion configuration. Skipping sync.", {
+      tokenSet: Boolean(config.notion.token),
+      databaseId: config.notion.databaseId,
+    });
     return false;
   }
 
@@ -84,7 +94,9 @@ export async function syncToNotion(entry: LogEntry): Promise<boolean> {
       return false;
     }
 
-    console.log(`[Notion] Synced entry ${entry.id} to database ${config.notion.databaseId}`);
+    console.log(
+      `[Notion] Synced entry ${entry.id} to database ${config.notion.databaseId}`,
+    );
     return true;
   } catch (error) {
     console.error("[Notion] Sync failed:", error);

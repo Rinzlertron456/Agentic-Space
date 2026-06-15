@@ -42,17 +42,33 @@ function buildNaukriUrl(options: NaukriSearchOptions): string {
 async function parseNaukriResults(page: Page): Promise<NaukriJobResult[]> {
   return page.evaluate(() => {
     const results: any[] = [];
-    const cards = document.querySelectorAll(".jobTuple, .srp-jobtuple-wrapper, article");
+    const cards = document.querySelectorAll(
+      ".jobTuple, .srp-jobtuple-wrapper, article, .list, .jobTuple-wrap, .jobDetail, .jobTupleContent, .jobTupleContainer, .jobTuple-item",
+    );
 
     cards.forEach((card) => {
       try {
-        const titleEl = card.querySelector(".title, a.title, .jobTuple-title a");
-        const companyEl = card.querySelector(".subTitle, a.subTitle, .companyName");
-        const locationEl = card.querySelector(".location, .locWdth");
-        const experienceEl = card.querySelector(".experience, .expwdth");
-        const salaryEl = card.querySelector(".salary, .sal");
-        const linkEl = card.querySelector("a.title, a[href*='/job/']") as HTMLAnchorElement | null;
-        const postedEl = card.querySelector(".posted, .jobPostDate, .fleft");
+        const titleEl = card.querySelector(
+          ".title, a.title, .jobTuple-title a, .jobTuple-title, .jobTuple-header a, .jobTuple-title-text, .jobTuple__title",
+        );
+        const companyEl = card.querySelector(
+          ".subTitle, a.subTitle, .companyName, .company, .jobTuple-subtitle, .company-name",
+        );
+        const locationEl = card.querySelector(
+          ".location, .locWdth, .jobTuple-location, .location li, .jobTuple-location span, .locationDetail",
+        );
+        const experienceEl = card.querySelector(
+          ".experience, .expwdth, .jobTuple-exp, .exp, .experienceDetail",
+        );
+        const salaryEl = card.querySelector(
+          ".salary, .sal, .jobTuple-sal, .salaryInfo",
+        );
+        const linkEl = card.querySelector(
+          "a.title, a[href*='/job/'], a.jobTuple-clickable, a[href*='naukri.com/job-detail'], a[href*='naukri.com/job/']",
+        ) as HTMLAnchorElement | null;
+        const postedEl = card.querySelector(
+          ".posted, .jobPostDate, .fleft, .jobTuple-detail .posted, .postedDate",
+        );
 
         const title = titleEl?.textContent?.trim() || "";
         const company = companyEl?.textContent?.trim() || "";
@@ -62,11 +78,13 @@ async function parseNaukriResults(page: Page): Promise<NaukriJobResult[]> {
         const rawUrl = linkEl?.href || "";
         const postedDate = postedEl?.textContent?.trim() || "";
 
-        // Extract job ID from URL
-        const jobIdMatch = rawUrl.match(/job\/(\d+)/) || rawUrl.match(/jobId=(\d+)/);
+        const jobIdMatch =
+          rawUrl.match(/job\/(\d+)/) ||
+          rawUrl.match(/jobId=(\d+)/) ||
+          rawUrl.match(/jobs\/(\d+)/);
         const jobId = jobIdMatch ? jobIdMatch[1] : "";
 
-        if (title && company) {
+        if (rawUrl && (title || company)) {
           results.push({
             title,
             company,
@@ -83,6 +101,42 @@ async function parseNaukriResults(page: Page): Promise<NaukriJobResult[]> {
       }
     });
 
+    if (results.length === 0) {
+      const fallbackLinks = Array.from(
+        document.querySelectorAll("a[href*='/job/'][href*='naukri.com']"),
+      );
+      fallbackLinks.forEach((link) => {
+        try {
+          const rawUrl = (link as HTMLAnchorElement).href;
+          const title = link.textContent?.trim() || "";
+          const company = "";
+          const location = "";
+          const experience = "";
+          const salary = "";
+          const postedDate = "";
+          const jobIdMatch =
+            rawUrl.match(/job\/(\d+)/) ||
+            rawUrl.match(/jobId=(\d+)/) ||
+            rawUrl.match(/jobs\/(\d+)/);
+          const jobId = jobIdMatch ? jobIdMatch[1] : "";
+          if (rawUrl && title) {
+            results.push({
+              title,
+              company,
+              location,
+              url: rawUrl,
+              jobId,
+              postedDate,
+              experience,
+              salary,
+            });
+          }
+        } catch {
+          // Skip fallback malformed links
+        }
+      });
+    }
+
     return results;
   });
 }
@@ -92,7 +146,7 @@ async function parseNaukriResults(page: Page): Promise<NaukriJobResult[]> {
  * Sorts by freshness. Returns structured results.
  */
 export async function searchNaukri(
-  options: NaukriSearchOptions
+  options: NaukriSearchOptions,
 ): Promise<NaukriJobResult[]> {
   const results: NaukriJobResult[] = [];
   let page;
@@ -107,11 +161,15 @@ export async function searchNaukri(
     await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
 
     // Wait for job listings to load
-    await page.waitForSelector(".jobTuple, .srp-jobtuple-wrapper, article", {
-      timeout: 10000,
-    }).catch(() => {
-      console.warn("[Naukri] No job listings found — page structure may have changed");
-    });
+    await page
+      .waitForSelector(".jobTuple, .srp-jobtuple-wrapper, article", {
+        timeout: 10000,
+      })
+      .catch(() => {
+        console.warn(
+          "[Naukri] No job listings found — page structure may have changed",
+        );
+      });
 
     // Scroll to load more results
     for (let i = 0; i < 2; i++) {
@@ -126,7 +184,10 @@ export async function searchNaukri(
     results.push(...parsed);
     console.log(`[Naukri] Found ${results.length} jobs`);
   } catch (error) {
-    console.error("[Naukri] Search failed:", error instanceof Error ? error.message : error);
+    console.error(
+      "[Naukri] Search failed:",
+      error instanceof Error ? error.message : error,
+    );
   } finally {
     try {
       await page?.close();
@@ -142,7 +203,7 @@ export async function searchNaukri(
  */
 export async function getCompanyPortalUrl(
   companyName: string,
-  jobId: string
+  jobId: string,
 ): Promise<string | null> {
   let page;
   try {
@@ -150,7 +211,7 @@ export async function getCompanyPortalUrl(
     await applyStealth(page);
 
     const searchQuery = encodeURIComponent(
-      `${companyName} careers ${jobId} site:${companyName.toLowerCase().replace(/\s+/g, "")}.com`
+      `${companyName} careers ${jobId} site:${companyName.toLowerCase().replace(/\s+/g, "")}.com`,
     );
     const url = `https://www.google.com/search?q=${searchQuery}`;
 
@@ -166,8 +227,12 @@ export async function getCompanyPortalUrl(
         const text = link.textContent?.toLowerCase() || "";
         if (
           href &&
-          (href.includes("/careers") || href.includes("/jobs") || href.includes("/carrers")) &&
-          (text.includes("career") || text.includes("job") || text.includes("apply"))
+          (href.includes("/careers") ||
+            href.includes("/jobs") ||
+            href.includes("/carrers")) &&
+          (text.includes("career") ||
+            text.includes("job") ||
+            text.includes("apply"))
         ) {
           return href;
         }
@@ -177,7 +242,10 @@ export async function getCompanyPortalUrl(
 
     return careerLink;
   } catch (error) {
-    console.error(`[Naukri] Company portal search failed for ${companyName}:`, error);
+    console.error(
+      `[Naukri] Company portal search failed for ${companyName}:`,
+      error,
+    );
     return null;
   } finally {
     try {

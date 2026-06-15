@@ -1,9 +1,68 @@
-import { SearchFilters, SearchResponse, JobListing, JobSource } from "@agentic-space/shared";
+import {
+  SearchFilters,
+  SearchResponse,
+  JobListing,
+  JobSource,
+} from "@agentic-space/shared";
 import { DEFAULT_SEARCH_FILTERS } from "@agentic-space/shared";
 import { v4 as uuidv4 } from "uuid";
 import { log } from "./logger.js";
 import { getAllKnownCareerUrls } from "../agents/company-site.js";
 import { searchWithRag } from "./matcher.js";
+
+function parsePostedAgeHours(postedDate: string): number | null {
+  const text = postedDate?.toLowerCase().trim();
+  if (!text) return null;
+  if (
+    /(just posted|today|posted today|recently|few hours|less than an hour|hour ago|hours ago|mins ago|minutes ago|seconds ago)/.test(
+      text,
+    )
+  ) {
+    return 0;
+  }
+
+  const minuteMatch = text.match(/(\d+)\s*(?:minute|min|mins)/);
+  if (minuteMatch) return Number(minuteMatch[1]) / 60;
+
+  const hourMatch = text.match(/(\d+)\s*(?:hour|hr|hrs|h)\b/);
+  if (hourMatch) return Number(hourMatch[1]);
+
+  const dayMatch = text.match(/(\d+)\s*(?:day|days|d)\b/);
+  if (dayMatch) return Number(dayMatch[1]) * 24;
+
+  const weekMatch = text.match(/(\d+)\s*(?:week|weeks)/);
+  if (weekMatch) return Number(weekMatch[1]) * 24 * 7;
+
+  const monthMatch = text.match(/(\d+)\s*(?:month|months)/);
+  if (monthMatch) return Number(monthMatch[1]) * 24 * 30;
+
+  const date = new Date(postedDate);
+  if (!Number.isNaN(date.getTime())) {
+    return (Date.now() - date.getTime()) / (1000 * 60 * 60);
+  }
+
+  return null;
+}
+
+function matchesPostedWithin(
+  postedDate: string,
+  postedWithin: SearchFilters["postedWithin"],
+): boolean {
+  if (postedWithin === "any") return true;
+  const ageHours = parsePostedAgeHours(postedDate);
+  if (ageHours === null) return false;
+
+  switch (postedWithin) {
+    case "last_hour":
+      return ageHours <= 1;
+    case "last_24_hours":
+      return ageHours <= 24;
+    case "last_week":
+      return ageHours <= 24 * 7;
+    case "last_month":
+      return ageHours <= 24 * 30;
+  }
+}
 
 // Agent imports
 import { searchLinkedIn } from "../agents/linkedin.js";
@@ -13,7 +72,7 @@ import { getResume } from "./resume-store.js";
 
 export async function searchJobs(
   resumeId: string,
-  filters: SearchFilters
+  filters: SearchFilters,
 ): Promise<SearchResponse> {
   const startTime = Date.now();
   const results: JobListing[] = [];
@@ -39,20 +98,33 @@ export async function searchJobs(
       ? mergedFilters.locations
       : ["Hyderabad", "Bengaluru", "Pune"];
 
-  console.log(`[Orchestrator] Searching: "${searchKeywords.join(", ")}" in ${locations.join(", ")}`);
+  console.log(
+    `[Orchestrator] Searching: "${searchKeywords.join(", ")}" in ${locations.join(", ")}`,
+  );
 
   const searches: Promise<void>[] = [];
   for (const source of mergedFilters.sources) {
     switch (source) {
       case "linkedin":
-        searches.push(searchLinkedInSource(results, searchKeywords, locations, mergedFilters));
+        searches.push(
+          searchLinkedInSource(
+            results,
+            searchKeywords,
+            locations,
+            mergedFilters,
+          ),
+        );
         break;
       case "naukri":
-        searches.push(searchNaukriSource(results, searchKeywords, locations, mergedFilters));
+        searches.push(
+          searchNaukriSource(results, searchKeywords, locations, mergedFilters),
+        );
         break;
       case "indeed":
       case "google_jobs":
-        searches.push(searchWebSource(results, searchKeywords, locations, mergedFilters));
+        searches.push(
+          searchWebSource(results, searchKeywords, locations, mergedFilters),
+        );
         break;
       case "company_portal":
         searches.push(searchCompanyPortals(results, mergedFilters));
@@ -83,7 +155,7 @@ export async function searchJobs(
     `Found ${scoredJobs.length} jobs across ${mergedFilters.sources.length} sources in ${duration}ms (with RAG scoring)`,
     { sources: mergedFilters.sources },
     undefined,
-    resumeId
+    resumeId,
   );
 
   return {
@@ -101,17 +173,19 @@ async function searchLinkedInSource(
   results: JobListing[],
   keywords: string[],
   locations: string[],
-  filters: SearchFilters
+  filters: SearchFilters,
 ): Promise<void> {
   try {
     const raw = await searchLinkedIn({
       keywords,
       locations,
-      postedWithin: filters.postedWithin === "last_hour" ? "last_hour" : "last_24_hours",
+      postedWithin: filters.postedWithin,
       experienceLevels: filters.experienceLevels,
       employmentTypes: filters.employmentTypes,
       maxResults: Math.min(filters.maxResults, 25),
     });
+
+    console.log(`[Orchestrator] LinkedIn returned ${raw.length} jobs`);
 
     for (const job of raw) {
       results.push({
@@ -144,7 +218,7 @@ async function searchNaukriSource(
   results: JobListing[],
   keywords: string[],
   locations: string[],
-  filters: SearchFilters
+  filters: SearchFilters,
 ): Promise<void> {
   try {
     const raw = await searchNaukri({
@@ -154,7 +228,11 @@ async function searchNaukriSource(
       maxResults: Math.min(filters.maxResults, 20),
     });
 
+    console.log(`[Orchestrator] Naukri returned ${raw.length} jobs`);
+
     for (const job of raw) {
+      if (!matchesPostedWithin(job.postedDate, filters.postedWithin)) continue;
+
       results.push({
         id: uuidv4(),
         source: "naukri",
@@ -185,13 +263,16 @@ async function searchWebSource(
   results: JobListing[],
   keywords: string[],
   locations: string[],
-  filters: SearchFilters
+  filters: SearchFilters,
 ): Promise<void> {
   try {
     const raw = await searchWebJobs(keywords, locations);
 
     for (const job of raw) {
-      const source: JobSource = job.source === "indeed" ? "indeed" : "google_jobs";
+      if (!matchesPostedWithin(job.postedDate, filters.postedWithin)) continue;
+
+      const source: JobSource =
+        job.source === "indeed" ? "indeed" : "google_jobs";
 
       results.push({
         id: uuidv4(),
@@ -221,11 +302,13 @@ async function searchWebSource(
 
 async function searchCompanyPortals(
   results: JobListing[],
-  _filters: SearchFilters
+  _filters: SearchFilters,
 ): Promise<void> {
   try {
     const urls = getAllKnownCareerUrls();
-    console.log(`[Company Portals] ${urls.length} curated career sites available`);
+    console.log(
+      `[Company Portals] ${urls.length} curated career sites available`,
+    );
 
     // Add a summary entry for the curated career sites
     results.push({

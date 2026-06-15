@@ -1,12 +1,12 @@
 import { newPage } from "../browser/playwright.js";
 import { applyStealth } from "../browser/stealth.js";
-import { LINKEDIN_TPR_MAP } from "@agentic-space/shared";
+import { LINKEDIN_TPR_MAP, PostedWithin } from "@agentic-space/shared";
 import type { Page } from "playwright";
 
 export interface LinkedInSearchOptions {
   keywords: string[];
   locations: string[];
-  postedWithin: "last_hour" | "last_24_hours";
+  postedWithin: PostedWithin;
   experienceLevels: string[];
   employmentTypes: string[];
   maxResults: number;
@@ -38,11 +38,11 @@ function buildLinkedInUrl(options: LinkedInSearchOptions): string {
 
   // Experience level mapping
   const expMap: Record<string, string> = {
-    "entry": "2",
-    "associate": "3",
-    "mid_senior": "4",
-    "senior": "5",
-    "director": "6",
+    entry: "2",
+    associate: "3",
+    mid_senior: "4",
+    senior: "5",
+    director: "6",
   };
   const expParam = options.experienceLevels
     .map((l) => expMap[l] || "4")
@@ -52,7 +52,9 @@ function buildLinkedInUrl(options: LinkedInSearchOptions): string {
   let url = "https://www.linkedin.com/jobs/search/";
   url += `?keywords=${keywordsParam}`;
   url += `&location=${locationParam}`;
-  url += `&f_TPR=r${tpr}`;
+  if (options.postedWithin !== "any") {
+    url += `&f_TPR=r${tpr}`;
+  }
   url += `&f_E=${expParam}`;
 
   // Employment type filter
@@ -81,37 +83,60 @@ function buildLinkedInUrl(options: LinkedInSearchOptions): string {
 async function parseLinkedInResults(page: Page): Promise<LinkedInJobResult[]> {
   return page.evaluate(() => {
     const results: any[] = [];
-    const cards = document.querySelectorAll(".job-card-container, .jobs-search-results__list-item");
+    const cards = document.querySelectorAll(
+      ".job-card-container, .jobs-search-results__list-item, .base-card, .result-card",
+    );
 
     cards.forEach((card) => {
       try {
-        const titleEl = card.querySelector(".job-card-list__title, h3");
-        const companyEl = card.querySelector(".job-card-container__company-name, h4");
-        const locationEl = card.querySelector(".job-card-container__metadata-item");
-        const linkEl = card.querySelector("a.job-card-list__title, a.job-card-container__link") as HTMLAnchorElement | null;
-        const postedDateEl = card.querySelector("time, .job-card-container__listed-time");
-        const easyApplyEl = card.querySelector(".job-card-container__apply-method");
+        const titleEl = card.querySelector(
+          ".job-card-list__title, h3, .base-search-card__title, .result-card__title-text",
+        );
+        const companyEl = card.querySelector(
+          ".job-card-container__company-name, h4, .base-search-card__subtitle, .result-card__subtitle-link",
+        );
+        const locationEl = card.querySelector(
+          ".job-card-container__metadata-item, .job-card__location, .base-search-card__metadata span, .result-card__grey-text",
+        );
+        const linkEl = card.querySelector(
+          "a.job-card-list__title, a.job-card-container__link, a.base-card__full-link, a.result-card__full-card-link",
+        ) as HTMLAnchorElement | null;
+        const postedDateEl = card.querySelector(
+          "time, .job-card-container__listed-time, .result-card__meta time, .base-search-card__metadata time",
+        );
+        const easyApplyEl = card.querySelector(
+          ".job-card-container__apply-method, .artdeco-badge--easy-apply, .job-card-container__easy-apply",
+        );
 
         const title = titleEl?.textContent?.trim() || "";
         const company = companyEl?.textContent?.trim() || "";
         const location = locationEl?.textContent?.trim() || "";
         const rawUrl = linkEl?.href || "";
-        const postedDateText = postedDateEl?.textContent?.trim() || postedDateEl?.getAttribute("datetime") || "";
+        const postedDateText =
+          postedDateEl?.textContent?.trim() ||
+          postedDateEl?.getAttribute("datetime") ||
+          "";
 
         // Extract job ID from URL
-        const jobIdMatch = rawUrl.match(/\/jobs\/view\/(\d+)/);
+        const jobIdMatch =
+          rawUrl.match(/\/jobs\/view\/(\d+)/) ||
+          rawUrl.match(/currentJobId=(\d+)/) ||
+          rawUrl.match(/position\/(\d+)/);
         const jobId = jobIdMatch ? jobIdMatch[1] : "";
 
         // Detect Easy Apply
-        const isEasyApply = easyApplyEl?.textContent?.toLowerCase().includes("easy apply") || false;
+        const isEasyApply =
+          easyApplyEl?.textContent?.toLowerCase().includes("easy apply") ||
+          false;
 
-        if (title || company) {
+        if (title || company || rawUrl) {
           results.push({
             title,
             company,
             location,
             url: rawUrl || `https://www.linkedin.com/jobs/view/${jobId}/`,
-            postedDate: postedDateText || new Date().toISOString().split("T")[0],
+            postedDate:
+              postedDateText || new Date().toISOString().split("T")[0],
             isEasyApply,
             jobId,
           });
@@ -130,7 +155,7 @@ async function parseLinkedInResults(page: Page): Promise<LinkedInJobResult[]> {
  * Returns structured results for HITL review.
  */
 export async function searchLinkedIn(
-  options: LinkedInSearchOptions
+  options: LinkedInSearchOptions,
 ): Promise<LinkedInJobResult[]> {
   const results: LinkedInJobResult[] = [];
   let page;
@@ -145,11 +170,13 @@ export async function searchLinkedIn(
     await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
 
     // Wait for job cards to load
-    await page.waitForSelector(".job-card-container, .jobs-search-results__list-item", {
-      timeout: 10000,
-    }).catch(() => {
-      console.warn("[LinkedIn] No job cards found — page may require login");
-    });
+    await page
+      .waitForSelector(".job-card-container, .jobs-search-results__list-item", {
+        timeout: 10000,
+      })
+      .catch(() => {
+        console.warn("[LinkedIn] No job cards found — page may require login");
+      });
 
     // Auto-scroll to load more results
     let previousHeight = 0;
@@ -174,9 +201,14 @@ export async function searchLinkedIn(
       }
     }
 
-    console.log(`[LinkedIn] Found ${results.length} non-Easy-Apply jobs (Easy Apply skipped: ${parsed.length - results.length})`);
+    console.log(
+      `[LinkedIn] Found ${results.length} non-Easy-Apply jobs (Easy Apply skipped: ${parsed.length - results.length})`,
+    );
   } catch (error) {
-    console.error("[LinkedIn] Search failed:", error instanceof Error ? error.message : error);
+    console.error(
+      "[LinkedIn] Search failed:",
+      error instanceof Error ? error.message : error,
+    );
   } finally {
     try {
       await page?.close();

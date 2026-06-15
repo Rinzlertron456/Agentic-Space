@@ -1,21 +1,18 @@
 import { useState, useCallback } from "react";
 
-export function useBatchSelect<T extends string>() {
-  const [selected, setSelected] = useState<Set<T>>(new Set());
+export function useBatchSelect() {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  const toggle = useCallback((id: T) => {
+  const toggle = useCallback((id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }, []);
 
-  const selectAll = useCallback((ids: T[]) => {
+  const selectAll = useCallback((ids: string[]) => {
     setSelected(new Set(ids));
   }, []);
 
@@ -23,7 +20,7 @@ export function useBatchSelect<T extends string>() {
     setSelected(new Set());
   }, []);
 
-  const isSelected = useCallback((id: T) => selected.has(id), [selected]);
+  const isSelected = useCallback((id: string) => selected.has(id), [selected]);
 
   return {
     selected: Array.from(selected),

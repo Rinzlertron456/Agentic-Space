@@ -12,9 +12,10 @@ export default function JobBoard() {
   const { jobs, loading, actionLoading, error, search, batchAction, clear } = useJobs();
   const { getFirst } = useResume();
   const navigate = useNavigate();
-  const batch = useBatchSelect<string>();
+  const batch = useBatchSelect();
   const firstResume = getFirst();
   const resumeId = firstResume?.id || "";
+  const hasJobs = jobs.length > 0;
 
   useEffect(() => {
     if (!firstResume) navigate("/");
@@ -24,26 +25,20 @@ export default function JobBoard() {
     (filters: SearchFilters) => {
       if (resumeId) search(resumeId, filters);
     },
-    [resumeId, search]
+    [resumeId, search],
   );
 
   const handleApply = useCallback(() => {
-    if (batch.selected.length > 0) {
-      batchAction(batch.selected, "apply");
-    }
-  }, [batch.selected, batchAction]);
+    if (batch.count > 0) batchAction(batch.selected, "apply");
+  }, [batch, batchAction]);
 
   const handleTailor = useCallback(() => {
-    if (batch.selected.length > 0) {
-      batchAction(batch.selected, "tailor");
-    }
-  }, [batch.selected, batchAction]);
+    if (batch.count > 0) batchAction(batch.selected, "tailor");
+  }, [batch, batchAction]);
 
   const handleSave = useCallback(() => {
-    if (batch.selected.length > 0) {
-      batchAction(batch.selected, "save");
-    }
-  }, [batch.selected, batchAction]);
+    if (batch.count > 0) batchAction(batch.selected, "save");
+  }, [batch, batchAction]);
 
   return (
     <div className="space-y-4">
@@ -58,15 +53,18 @@ export default function JobBoard() {
 
       <FilterBar onSearch={handleSearch} loading={loading || actionLoading} />
 
-      <BatchActions
-        count={batch.count}
-        total={jobs.length}
-        onSelectAll={() => batch.selectAll(jobs.map((j) => j.id))}
-        onClearAll={batch.clearAll}
-        onApply={handleApply}
-        onTailor={handleTailor}
-        onSave={handleSave}
-      />
+      {hasJobs && (
+        <BatchActions
+          count={batch.count}
+          total={jobs.length}
+          onSelectAll={() => batch.selectAll(jobs.map((j) => j.id))}
+          onClearAll={batch.clearAll}
+          onApply={handleApply}
+          onTailor={handleTailor}
+          onSave={handleSave}
+          loading={actionLoading}
+        />
+      )}
 
       {loading && (
         <div className="card text-center py-8">
@@ -87,7 +85,7 @@ export default function JobBoard() {
         </div>
       )}
 
-      {!loading && jobs.length === 0 && !error && (
+      {!loading && !hasJobs && !error && (
         <div className="card text-center py-8">
           <span className="text-3xl block mb-2">💼</span>
           <p className="font-display font-bold text-sm">No jobs yet</p>
@@ -97,7 +95,7 @@ export default function JobBoard() {
         </div>
       )}
 
-      {!loading && jobs.length > 0 && (
+      {!loading && hasJobs && (
         <div className="space-y-3">
           {jobs.map((job) => (
             <JobCard
@@ -111,7 +109,7 @@ export default function JobBoard() {
         </div>
       )}
 
-      {jobs.length > 0 && (
+      {hasJobs && (
         <button onClick={clear} className="btn-secondary btn-small w-full">
           Clear Results
         </button>

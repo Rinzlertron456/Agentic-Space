@@ -2,7 +2,7 @@
   "project": "Agentic Space",
   "status": "complete",
   "git": {
-    "commit": "5927e45",
+    "commit": "0e766ce",
     "branch": "master",
     "remotes": ["origin/main"]
   },
@@ -22,6 +22,12 @@
     "path": "C:/Users/devan/.claude/skills/resume-tailor-interview/SKILL.md",
     "trigger": "tailor resume, interview prep, skill gap analysis"
   },
+  "docs": [
+    "docs/ARCHITECTURE_PLAN.md",
+    "docs/PHASE{1..7}_REPORT.md",
+    "docs/DEPLOYMENT_STRATEGY.md",
+    "docs/INTERVIEW_PREP_DELOITTE.md"
+  ],
   "phases": [
     "1: Monorepo scaffold", "1.5: Career sites DB", "2: Resume analyzer",
     "3: Job search engine", "4: RAG matching", "5: Dashboard UI",
