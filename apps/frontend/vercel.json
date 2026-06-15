@@ -3,6 +3,6 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://agentic-space-backend-fixed.onrender.com/api/$1" }
+    { "source": "/api/(.*)", "destination": "https://agentic-space-backend-shared.onrender.com/api/$1" }
   ]
 }
