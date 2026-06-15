@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
+import { access } from "fs/promises";
+import { chromium } from "playwright";
 import { config } from "./config.js";
 import { resumeRouter } from "./routes/resume.js";
 import { jobsRouter } from "./routes/jobs.js";
@@ -27,6 +29,70 @@ app.get("/api/health", (_req, res) => {
     status: "ok",
     timestamp: new Date().toISOString(),
     version: "1.0.0",
+  });
+});
+
+async function checkOllama() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2500);
+
+  try {
+    const response = await fetch(`${config.ollama.host}/api/tags`, {
+      signal: controller.signal,
+    });
+    return {
+      ok: response.ok,
+      status: response.status,
+      host: config.ollama.host,
+      model: config.ollama.model,
+      embedModel: config.ollama.embedModel,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      host: config.ollama.host,
+      model: config.ollama.model,
+      embedModel: config.ollama.embedModel,
+      error: error instanceof Error ? error.message : "Unknown Ollama check error",
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function checkPlaywright() {
+  const executablePath = chromium.executablePath();
+
+  try {
+    await access(executablePath);
+    return {
+      ok: true,
+      executablePath,
+      browsersPath: process.env.PLAYWRIGHT_BROWSERS_PATH || "default",
+      headless: config.browser.headless,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      executablePath,
+      browsersPath: process.env.PLAYWRIGHT_BROWSERS_PATH || "default",
+      headless: config.browser.headless,
+      error: error instanceof Error ? error.message : "Unknown Playwright check error",
+    };
+  }
+}
+
+app.get("/api/diagnostics", async (_req, res) => {
+  const [ollama, playwright] = await Promise.all([checkOllama(), checkPlaywright()]);
+
+  res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    version: "1.0.0",
+    frontendUrl: config.frontendUrl,
+    chroma: config.chroma.url,
+    ollama,
+    playwright,
   });
 });
 

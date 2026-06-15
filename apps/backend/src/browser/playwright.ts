@@ -1,4 +1,5 @@
 import { chromium, Browser, BrowserContext, Page } from "playwright";
+import { config } from "../config.js";
 
 let browser: Browser | null = null;
 let context: BrowserContext | null = null;
@@ -6,7 +7,7 @@ let context: BrowserContext | null = null;
 export async function getBrowser(): Promise<Browser> {
   if (!browser) {
     browser = await chromium.launch({
-      headless: false,
+      headless: config.browser.headless,
       args: [
         "--disable-blink-features=AutomationControlled",
         "--no-sandbox",
