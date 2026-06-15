@@ -5,6 +5,7 @@ COPY apps/frontend/package.json apps/frontend/
 COPY packages/shared/package.json packages/shared/
 RUN npm ci
 COPY . .
+RUN npm run build -w packages/shared
 RUN npm run build -w apps/frontend
 
 FROM nginx:alpine AS runner

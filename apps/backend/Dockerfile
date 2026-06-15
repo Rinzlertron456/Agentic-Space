@@ -10,6 +10,7 @@ RUN npm ci
 FROM deps AS build
 WORKDIR /app
 COPY . .
+RUN npm run build -w packages/shared
 RUN npm run typecheck -w packages/shared
 RUN npm run build -w apps/backend
 

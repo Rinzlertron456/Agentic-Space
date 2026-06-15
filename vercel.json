@@ -1,9 +1,9 @@
 {
   "framework": "vite",
   "installCommand": "npm install",
-  "buildCommand": "npm run typecheck -w packages/shared && npm run build -w apps/frontend",
+  "buildCommand": "npm run build -w packages/shared && npm run build -w apps/frontend",
   "outputDirectory": "apps/frontend/dist",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://agentic-space-backend.onrender.com/api/$1" }
+    { "source": "/api/(.*)", "destination": "https://agentic-space-backend-fixed.onrender.com/api/$1" }
   ]
 }

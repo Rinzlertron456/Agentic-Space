@@ -4,13 +4,13 @@ services:
     runtime: node
     region: singapore
     plan: free
-    buildCommand: npm install --include=dev && npx playwright install chromium && npm run typecheck -w packages/shared && npm run build -w apps/backend
+    buildCommand: npm install --include=dev && npx playwright install chromium && npm run build -w packages/shared && npm run build -w apps/backend
     startCommand: npm run start -w apps/backend
     envVars:
       - key: NODE_ENV
         value: production
       - key: FRONTEND_URL
-        value: https://agentic-space.vercel.app
+        value: https://frontend-lwexbdv7x-vinayak-santhoshs-projects.vercel.app
       - key: OLLAMA_HOST
         value: http://localhost:11434
       - key: BROWSER_HEADLESS
