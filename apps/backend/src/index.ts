@@ -1,8 +1,6 @@
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
-import { access } from "fs/promises";
-import { chromium } from "playwright";
 import { config } from "./config.js";
 import { resumeRouter } from "./routes/resume.js";
 import { jobsRouter } from "./routes/jobs.js";
@@ -62,32 +60,9 @@ async function checkOllama() {
   }
 }
 
-async function checkPlaywright() {
-  const executablePath = chromium.executablePath();
-
-  try {
-    await access(executablePath);
-    return {
-      ok: true,
-      executablePath,
-      browsersPath: process.env.PLAYWRIGHT_BROWSERS_PATH || "default",
-      headless: config.browser.headless,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      executablePath,
-      browsersPath: process.env.PLAYWRIGHT_BROWSERS_PATH || "default",
-      headless: config.browser.headless,
-      error: error instanceof Error ? error.message : "Unknown Playwright check error",
-    };
-  }
-}
-
 app.get("/api/diagnostics", async (_req, res) => {
-  const [ollama, playwright, chroma, openai] = await Promise.all([
+  const [ollama, chroma, openai] = await Promise.all([
     checkOllama(),
-    checkPlaywright(),
     isChromaAvailable().then((ok) => ({ ok, url: config.chroma.url })),
     isOllamaAvailable().then((ok) => ({
       ok,
@@ -105,7 +80,6 @@ app.get("/api/diagnostics", async (_req, res) => {
     chroma,
     ollama,
     openai,
-    playwright,
   });
 });
 

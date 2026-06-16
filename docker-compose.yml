@@ -36,7 +36,6 @@ services:
       - CHROMA_URL=http://chromadb:8000
       - FRONTEND_URL=http://localhost:5173
       - BROWSER_HEADLESS=true
-      - PLAYWRIGHT_BROWSERS_PATH=0
       - PORT=3001
     depends_on:
       - ollama

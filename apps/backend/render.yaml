@@ -4,7 +4,7 @@ services:
     runtime: node
     region: singapore
     plan: free
-    buildCommand: npm install --include=dev && npx playwright install chromium && npm run build -w packages/shared && npm run build -w apps/backend
+    buildCommand: npm install --include=dev && npm run build -w packages/shared && npm run build -w apps/backend
     startCommand: npm run start -w apps/backend
     envVars:
       - key: NODE_ENV
@@ -21,7 +21,5 @@ services:
         value: http://localhost:11434
       - key: BROWSER_HEADLESS
         value: "true"
-      - key: PLAYWRIGHT_BROWSERS_PATH
-        value: "0"
       - key: PORT
         value: "3001"

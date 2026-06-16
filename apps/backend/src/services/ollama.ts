@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import { config } from "../config.js";
 
 /** HTTP timeout for OpenAI API calls */
-const OPENAI_TIMEOUT_MS = 15_000;
+const OPENAI_TIMEOUT_MS = 60_000;
 
 let _openai: OpenAI | null = null;
 let _llmAvailable: boolean | null = null;
@@ -97,7 +97,7 @@ export async function generate(prompt: string): Promise<string> {
 
   // Fallback to local Ollama
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
+  const timeout = setTimeout(() => controller.abort(), 30000);
 
   try {
     const response = await fetch(`${config.ollama.host}/api/generate`, {
@@ -147,7 +147,7 @@ export async function embed(text: string): Promise<number[]> {
 
   // Fallback to local Ollama
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
+  const timeout = setTimeout(() => controller.abort(), 30000);
 
   try {
     const response = await fetch(`${config.ollama.host}/api/embeddings`, {

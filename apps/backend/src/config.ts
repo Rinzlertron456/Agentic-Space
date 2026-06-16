@@ -21,6 +21,12 @@ export const config = {
     embedModel: process.env.OLLAMA_EMBED_MODEL || "nomic-embed-text",
   },
 
+  jobApi: {
+    adzunaAppId: process.env.ADZUNA_APP_ID || "",
+    adzunaAppKey: process.env.ADZUNA_APP_KEY || "",
+    serpApiKey: process.env.SERPAPI_KEY || "",
+  },
+
   chroma: {
     url: process.env.CHROMA_URL || "http://localhost:8000",
   },

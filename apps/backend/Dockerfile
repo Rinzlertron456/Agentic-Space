@@ -21,8 +21,5 @@ COPY --from=build /app/apps/backend/package.json ./package.json
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages ./packages
 
-# Install Playwright Chromium for job search agents
-RUN npx playwright install chromium --with-deps
-
 EXPOSE 3001
 CMD ["node", "dist/index.js"]
