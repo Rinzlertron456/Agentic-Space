@@ -9,7 +9,7 @@ import { jobsRouter } from "./routes/jobs.js";
 import { tailorRouter } from "./routes/tailor.js";
 import { networkRouter } from "./routes/network.js";
 import { logsRouter } from "./routes/logs.js";
-import { isOllamaAvailable } from "./services/ollama.js";
+import { isOllamaAvailable, resetOllamaAvailability } from "./services/ollama.js";
 import { isChromaAvailable } from "./services/chroma.js";
 
 const app = express();
@@ -85,10 +85,16 @@ async function checkPlaywright() {
 }
 
 app.get("/api/diagnostics", async (_req, res) => {
-  const [ollama, playwright, chroma] = await Promise.all([
+  const [ollama, playwright, chroma, openai] = await Promise.all([
     checkOllama(),
     checkPlaywright(),
     isChromaAvailable().then((ok) => ({ ok, url: config.chroma.url })),
+    isOllamaAvailable().then((ok) => ({
+      ok,
+      model: config.openai.model,
+      embedModel: config.openai.embedModel,
+      apiKeySet: Boolean(config.openai.apiKey),
+    })),
   ]);
 
   res.json({
@@ -98,6 +104,7 @@ app.get("/api/diagnostics", async (_req, res) => {
     frontendUrl: config.frontendUrl,
     chroma,
     ollama,
+    openai,
     playwright,
   });
 });
@@ -113,17 +120,17 @@ app.use("/api/logs", logsRouter);
 app.listen(config.port, async () => {
   console.log(`🚀 Agentic-Space Backend running on http://localhost:${config.port}`);
   console.log(`   Environment: ${config.nodeEnv}`);
-  console.log(`   Ollama: ${config.ollama.host}`);
   console.log(`   Frontend: ${config.frontendUrl}`);
 
   // Check external service availability at startup
-  const ollamaOk = await isOllamaAvailable();
+  const openaiOk = await isOllamaAvailable();
   const chromaOk = await isChromaAvailable();
-  console.log(`   Ollama: ${ollamaOk ? "✅ ONLINE" : "❌ OFFLINE"} (host: ${config.ollama.host})`);
-  console.log(`   ChromaDB: ${chromaOk ? "✅ ONLINE" : "❌ OFFLINE"} (host: ${config.chroma.url})`);
-  if (!ollamaOk) {
-    console.log("   ℹ️ Resume analysis and RAG will use keyword-only fallbacks.");
+  console.log(`   OpenAI: ${openaiOk ? "✅ ONLINE" : "❌ OFFLINE"} (model: ${config.openai.model}, embed: ${config.openai.embedModel})`);
+  if (!openaiOk) {
+    console.log(`   ℹ️  Set OPENAI_API_KEY environment variable to enable LLM features.`);
+    console.log(`   ℹ️  When OpenAI is offline, local Ollama at ${config.ollama.host} is tried as fallback.`);
   }
+  console.log(`   ChromaDB: ${chromaOk ? "✅ ONLINE" : "❌ OFFLINE"} (host: ${config.chroma.url})`);
 });
 
 export default app;
