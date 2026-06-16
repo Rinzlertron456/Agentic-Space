@@ -10,7 +10,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: FRONTEND_URL
-        value: https://frontend-lwexbdv7x-vinayak-santhoshs-projects.vercel.app
+        value: https://frontend-sooty-seven-q13y3obahx.vercel.app
       - key: OLLAMA_HOST
         value: http://localhost:11434
       - key: BROWSER_HEADLESS
