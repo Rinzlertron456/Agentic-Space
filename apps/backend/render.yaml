@@ -11,6 +11,12 @@ services:
         value: production
       - key: FRONTEND_URL
         value: https://frontend-sooty-seven-q13y3obahx.vercel.app
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: OPENAI_EMBED_MODEL
+        value: text-embedding-3-small
       - key: OLLAMA_HOST
         value: http://localhost:11434
       - key: BROWSER_HEADLESS

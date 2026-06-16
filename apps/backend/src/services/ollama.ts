@@ -1,45 +1,55 @@
+import OpenAI from "openai";
 import { config } from "../config.js";
 
-/** HTTP timeout for Ollama calls — prevents memory pile-up from hanging connections */
-const OLLAMA_TIMEOUT_MS = 5_000;
+/** HTTP timeout for OpenAI API calls */
+const OPENAI_TIMEOUT_MS = 15_000;
 
-interface OllamaGenerateResponse {
-  model: string;
-  response: string;
-  done: boolean;
-}
+let _openai: OpenAI | null = null;
+let _ollamaAvailable: boolean | null = null;
 
-interface OllamaEmbedResponse {
-  embedding: number[];
+function getOpenAI(): OpenAI {
+  if (!_openai) {
+    if (!config.openai.apiKey) {
+      throw new Error(
+        "OPENAI_API_KEY is not configured. Set it in environment variables.",
+      );
+    }
+    _openai = new OpenAI({
+      apiKey: config.openai.apiKey,
+      timeout: OPENAI_TIMEOUT_MS,
+      maxRetries: 2,
+    });
+  }
+  return _openai;
 }
 
 // ─── Availability detection ────────────────────────────────────
 
-let _ollamaAvailable: boolean | null = null;
-
 /**
- * Check whether Ollama is reachable at the configured host.
- * Results are cached so repeated calls don't hammer a dead host.
+ * Check whether a working LLM backend is available.
+ * For OpenAI a valid API key is enough — no ping needed.
  */
 export async function isOllamaAvailable(): Promise<boolean> {
   if (_ollamaAvailable !== null) return _ollamaAvailable;
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 2_000);
+  if (!config.openai.apiKey) {
+    _ollamaAvailable = false;
+    console.warn(
+      "[OpenAI] No API key configured — LLM-dependent features disabled.",
+    );
+    return false;
+  }
 
+  // Quick validation: list models
   try {
-    const response = await fetch(`${config.ollama.host}/api/tags`, {
-      signal: controller.signal,
-    });
-    _ollamaAvailable = response.ok;
+    const models = await getOpenAI().models.list();
+    _ollamaAvailable = models.data.length > 0;
   } catch {
     _ollamaAvailable = false;
-  } finally {
-    clearTimeout(timeout);
   }
 
   console.log(
-    `[Ollama] Availability check: ${_ollamaAvailable ? "ONLINE" : "OFFLINE"} at ${config.ollama.host}`,
+    `[OpenAI] Availability check: ${_ollamaAvailable ? "✅ ONLINE" : "❌ OFFLINE"}`,
   );
 
   return _ollamaAvailable;
@@ -47,7 +57,6 @@ export async function isOllamaAvailable(): Promise<boolean> {
 
 /**
  * Reset cached availability so the next call rechecks.
- * Useful after a network change or when retrying.
  */
 export function resetOllamaAvailability(): void {
   _ollamaAvailable = null;
@@ -56,83 +65,42 @@ export function resetOllamaAvailability(): void {
 // ─── Generate ──────────────────────────────────────────────────
 
 export async function generate(prompt: string): Promise<string> {
-  await checkOllamaOrThrow();
+  await checkOrThrow();
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
+  const response = await getOpenAI().chat.completions.create({
+    model: config.openai.model,
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.3,
+    max_tokens: 2048,
+  });
 
-  try {
-    const response = await fetch(`${config.ollama.host}/api/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: config.ollama.model,
-        prompt,
-        stream: false,
-      }),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      throw new Error(`Ollama API error: ${response.status}`);
-    }
-
-    const data = (await response.json()) as OllamaGenerateResponse;
-    return data.response;
-  } catch (error) {
-    // On timeout/network error, mark Ollama as unavailable so subsequent calls fail fast
-    _ollamaAvailable = false;
-    console.error("Ollama generate error:", error);
-    throw new Error(
-      `Ollama unavailable at ${config.ollama.host}. Ensure Ollama is running.`,
-    );
-  } finally {
-    clearTimeout(timeout);
+  const content = response.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error("OpenAI returned empty response");
   }
+
+  return content;
 }
 
 // ─── Embed ─────────────────────────────────────────────────────
 
 export async function embed(text: string): Promise<number[]> {
-  await checkOllamaOrThrow();
+  await checkOrThrow();
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
+  const response = await getOpenAI().embeddings.create({
+    model: config.openai.embedModel,
+    input: text,
+  });
 
-  try {
-    const response = await fetch(`${config.ollama.host}/api/embeddings`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: config.ollama.embedModel,
-        prompt: text,
-      }),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      throw new Error(`Ollama embedding API error: ${response.status}`);
-    }
-
-    const data = (await response.json()) as OllamaEmbedResponse;
-    return data.embedding;
-  } catch (error) {
-    _ollamaAvailable = false;
-    console.error("Ollama embedding error:", error);
-    throw new Error(
-      `Ollama unavailable at ${config.ollama.host}. Ensure Ollama is running.`,
-    );
-  } finally {
-    clearTimeout(timeout);
-  }
+  return response.data[0].embedding;
 }
 
 // ─── Internal helpers ──────────────────────────────────────────
 
-async function checkOllamaOrThrow(): Promise<void> {
+async function checkOrThrow(): Promise<void> {
   if (!(await isOllamaAvailable())) {
     throw new Error(
-      `Ollama is not available at ${config.ollama.host}. LLM-dependent features are disabled.`,
+      "OpenAI is not configured. Set OPENAI_API_KEY in environment variables.",
     );
   }
 }

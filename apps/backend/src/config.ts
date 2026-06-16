@@ -9,6 +9,12 @@ export const config = {
   port: parseInt(process.env.PORT || "3001", 10),
   nodeEnv: process.env.NODE_ENV || "development",
 
+  openai: {
+    apiKey: process.env.OPENAI_API_KEY || "",
+    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+    embedModel: process.env.OPENAI_EMBED_MODEL || "text-embedding-3-small",
+  },
+
   ollama: {
     host: process.env.OLLAMA_HOST || "http://localhost:11434",
     model: process.env.OLLAMA_MODEL || "mistral",
