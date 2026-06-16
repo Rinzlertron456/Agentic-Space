@@ -9,6 +9,8 @@ import { jobsRouter } from "./routes/jobs.js";
 import { tailorRouter } from "./routes/tailor.js";
 import { networkRouter } from "./routes/network.js";
 import { logsRouter } from "./routes/logs.js";
+import { isOllamaAvailable } from "./services/ollama.js";
+import { isChromaAvailable } from "./services/chroma.js";
 
 const app = express();
 
@@ -83,14 +85,18 @@ async function checkPlaywright() {
 }
 
 app.get("/api/diagnostics", async (_req, res) => {
-  const [ollama, playwright] = await Promise.all([checkOllama(), checkPlaywright()]);
+  const [ollama, playwright, chroma] = await Promise.all([
+    checkOllama(),
+    checkPlaywright(),
+    isChromaAvailable().then((ok) => ({ ok, url: config.chroma.url })),
+  ]);
 
   res.json({
     status: "ok",
     timestamp: new Date().toISOString(),
     version: "1.0.0",
     frontendUrl: config.frontendUrl,
-    chroma: config.chroma.url,
+    chroma,
     ollama,
     playwright,
   });
@@ -104,11 +110,20 @@ app.use("/api/network", networkRouter);
 app.use("/api/logs", logsRouter);
 
 // Start server
-app.listen(config.port, () => {
+app.listen(config.port, async () => {
   console.log(`🚀 Agentic-Space Backend running on http://localhost:${config.port}`);
   console.log(`   Environment: ${config.nodeEnv}`);
   console.log(`   Ollama: ${config.ollama.host}`);
   console.log(`   Frontend: ${config.frontendUrl}`);
+
+  // Check external service availability at startup
+  const ollamaOk = await isOllamaAvailable();
+  const chromaOk = await isChromaAvailable();
+  console.log(`   Ollama: ${ollamaOk ? "✅ ONLINE" : "❌ OFFLINE"} (host: ${config.ollama.host})`);
+  console.log(`   ChromaDB: ${chromaOk ? "✅ ONLINE" : "❌ OFFLINE"} (host: ${config.chroma.url})`);
+  if (!ollamaOk) {
+    console.log("   ℹ️ Resume analysis and RAG will use keyword-only fallbacks.");
+  }
 });
 
 export default app;

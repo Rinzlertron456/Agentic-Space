@@ -69,6 +69,7 @@ import { searchLinkedIn } from "../agents/linkedin.js";
 import { searchNaukri } from "../agents/naukri.js";
 import { searchWebJobs } from "../agents/web-search.js";
 import { getResume } from "./resume-store.js";
+import { closeBrowser } from "../browser/playwright.js";
 
 export async function searchJobs(
   resumeId: string,
@@ -132,7 +133,15 @@ export async function searchJobs(
     }
   }
 
-  await Promise.allSettled(searches);
+  // Run searches SEQUENTIALLY to keep Playwright memory usage low
+  // Parallel execution opens 3-4 Chromium pages simultaneously (~200-400 MB)
+  // Sequential limits to 1 page at a time
+  for (const search of searches) {
+    await search;
+  }
+
+  // Close the browser to free its ~200-350 MB of memory now that searches are done
+  await closeBrowser();
 
   // Deduplicate by URL
   const seen = new Set<string>();
