@@ -43,7 +43,7 @@ export async function searchJobs(
   );
 
   // Use API-based job search (no Playwright scraping needed)
-  const { jobs, source } = await searchAllSources(searchKeywords, locations);
+  const { jobs, source } = await searchAllSources(searchKeywords, locations, mergedFilters.sources);
 
   // RAG scoring: semantic + keyword combined
   const { results: scoredJobs } = await searchWithRag(resumeId, jobs);

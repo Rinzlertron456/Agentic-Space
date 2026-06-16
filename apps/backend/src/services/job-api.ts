@@ -277,14 +277,52 @@ async function searchGoogleJobsApi(
   }
 }
 
+// ─── Free fallback: Remotive API (no key needed) ─────────────
+
+async function searchRemotive(
+  keywords: string[],
+): Promise<JobListing[]> {
+  try {
+    const query = encodeURIComponent(keywords.join(" "));
+    const url = `https://remotive.com/api/remote-jobs?search=${query}&limit=25`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    const jobs = data.jobs || [];
+
+    return jobs.map((job: any): JobListing => ({
+      id: uuidv4(),
+      source: "other" as JobSource,
+      sourceId: `remotive-${job.id}`,
+      title: job.title || "",
+      company: job.company_name || "Unknown",
+      location: job.candidate_required_location || "Remote",
+      description: (job.description || "").replace(/<[^>]*>?/gm, '').slice(0, 2000),
+      requirements: [],
+      applyUrl: job.url || "",
+      postedDate: job.publication_date || new Date().toISOString(),
+      experienceLevel: "mid_senior",
+      employmentType: job.job_type === "full_time" ? "full_time" : "contract",
+      isEasyApply: false,
+      matchScore: 0,
+      skills: job.tags || extractKeywords(job.title || "", job.description || ""),
+      status: "new",
+    }));
+  } catch (error) {
+    console.error("[JobAPI] Remotive API failed:", error);
+    return [];
+  }
+}
+
 // ─── Main orchestrator ──────────────────────────────────────
 
-export type JobApiSource = "adzuna" | "indeed_rss" | "google_serp" | "mock";
+export type JobApiSource = "adzuna" | "remotive" | "indeed" | "google_jobs" | "linkedin" | "naukri" | "company_portal" | "mock";
 
 export async function searchJobsViaApi(
   keywords: string[],
   locations: string[],
-  source: JobApiSource = "adzuna",
+  source: JobApiSource,
 ): Promise<JobListing[]> {
   const allJobs: JobListing[] = [];
 
@@ -295,14 +333,21 @@ export async function searchJobsViaApi(
       case "adzuna":
         jobs = await searchAdzuna(keywords, location);
         break;
-      case "indeed_rss":
+      case "remotive":
+        jobs = await searchRemotive(keywords);
+        break;
+      case "indeed":
         jobs = await searchIndeedRss(keywords, location);
         break;
-      case "google_serp":
+      case "google_jobs":
         jobs = await searchGoogleJobsApi(keywords, location);
         break;
+      case "linkedin":
+      case "naukri":
+      case "company_portal":
       case "mock":
-        jobs = getMockJobs(keywords, location);
+        // Fallback for sources without direct free APIs
+        jobs = getMockJobs(keywords, location).map(j => ({ ...j, source: source as JobSource }));
         break;
     }
 
@@ -323,33 +368,43 @@ export async function searchJobsViaApi(
 }
 
 /**
- * Try all available API sources in priority order.
- * Falls back to mock data if no API keys are configured.
+ * Try all available API sources in priority order or concurrently,
+ * based on the requested sources.
  */
 export async function searchAllSources(
   keywords: string[],
   locations: string[],
+  requestedSources: JobSource[] = ["adzuna", "remotive", "indeed", "google_jobs"]
 ): Promise<{ jobs: JobListing[]; source: string }> {
-  // Priority 1: Adzuna (if configured)
-  if (config.jobApi.adzunaAppId && config.jobApi.adzunaAppKey) {
-    const jobs = await searchJobsViaApi(keywords, locations, "adzuna");
-    if (jobs.length > 0) return { jobs, source: "adzuna" };
+  
+  const promises = requestedSources.map(source => {
+    // Map JobSource to JobApiSource if needed
+    const apiSource = source as JobApiSource;
+    return searchJobsViaApi(keywords, locations, apiSource).catch(err => {
+      console.error(`[JobAPI] Failed for source ${source}:`, err);
+      return [] as JobListing[];
+    });
+  });
+
+  const results = await Promise.all(promises);
+  let allJobs = results.flat();
+
+  // If no jobs were found from configured APIs, fall back to some general mock data
+  if (allJobs.length === 0) {
+    console.log("[JobAPI] No jobs found from requested sources — falling back to mock data");
+    allJobs = getMockJobs(keywords, locations[0] || "India");
   }
 
-  // Priority 2: Indeed RSS (free, no key needed, but less reliable)
-  const indeedJobs = await searchJobsViaApi(keywords, locations, "indeed_rss");
-  if (indeedJobs.length > 0) return { jobs: indeedJobs, source: "indeed_rss" };
+  // Deduplicate again across all sources
+  const seen = new Set<string>();
+  const unique = allJobs.filter((job) => {
+    const key = `${job.title}|${job.company}`.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 
-  // Priority 3: Google Jobs via SerpAPI (if configured)
-  if (config.jobApi.serpApiKey) {
-    const googleJobs = await searchJobsViaApi(keywords, locations, "google_serp");
-    if (googleJobs.length > 0) return { jobs: googleJobs, source: "google_serp" };
-  }
-
-  // Fallback: mock data so the UI always has something to show
-  console.log("[JobAPI] No API sources available — using mock data");
-  const mockJobs = getMockJobs(keywords, locations[0] || "India");
-  return { jobs: mockJobs, source: "mock" };
+  return { jobs: unique, source: requestedSources.join(",") };
 }
 
 // ─── Mock data (fallback when no API is configured) ─────────

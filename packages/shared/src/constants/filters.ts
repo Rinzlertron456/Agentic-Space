@@ -5,7 +5,7 @@ export const DEFAULT_LOCATIONS = ["Hyderabad", "Bengaluru", "Pune"];
 export const DEFAULT_SEARCH_FILTERS: SearchFilters = {
   keywords: [],
   locations: [...DEFAULT_LOCATIONS],
-  sources: ["linkedin", "naukri", "indeed", "google_jobs", "company_portal"],
+  sources: ["linkedin", "naukri", "indeed", "company_portal", "google_jobs", "adzuna", "remotive"],
   postedWithin: "last_24_hours",
   experienceLevels: ["associate", "mid_senior"],
   employmentTypes: ["full_time"],

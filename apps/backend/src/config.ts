@@ -25,6 +25,7 @@ export const config = {
     adzunaAppId: process.env.ADZUNA_APP_ID || "",
     adzunaAppKey: process.env.ADZUNA_APP_KEY || "",
     serpApiKey: process.env.SERPAPI_KEY || "",
+    rapidApiKey: process.env.RAPIDAPI_KEY || "",
   },
 
   chroma: {

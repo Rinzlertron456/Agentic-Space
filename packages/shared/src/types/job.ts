@@ -1,4 +1,4 @@
-export type JobSource = "linkedin" | "naukri" | "indeed" | "company_portal" | "google_jobs" | "other";
+export type JobSource = "linkedin" | "naukri" | "indeed" | "company_portal" | "google_jobs" | "adzuna" | "remotive" | "other";
 
 export type JobStatus = "new" | "viewed" | "applied" | "skipped" | "saved";
 
