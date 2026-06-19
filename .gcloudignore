@@ -7,7 +7,7 @@ uploads
 .env.example
 dist
 *.md
-Dockerfile
 docker-compose.yml
 render.yaml
 project-data.json
+apps/backend/Dockerfile
