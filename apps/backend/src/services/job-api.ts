@@ -231,6 +231,65 @@ async function searchIndeedRss(
   }
 }
 
+// ─── Organic Search via SERP (for LinkedIn, Naukri, etc) ─────
+
+async function searchOrganicJobs(
+  keywords: string[],
+  location: string,
+  siteFilter: string,
+  sourceType: JobSource
+): Promise<JobListing[]> {
+  try {
+    if (!config.jobApi.serpApiKey) return [];
+    
+    // e.g. "software engineer jobs in Bengaluru site:linkedin.com/jobs/view"
+    const query = encodeURIComponent(`${keywords.join(" ")} jobs in ${location} ${siteFilter}`);
+    const url = `https://serpapi.com/search?engine=google&q=${query}&hl=en&gl=in`;
+
+    const res = await fetch(`${url}&api_key=${config.jobApi.serpApiKey}`, {
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    
+    const results = data.organic_results || [];
+    return results.slice(0, 15).map((result: any): JobListing => {
+      // Try to parse title and company from snippets like "Software Engineer - Google - Bengaluru"
+      let title = result.title || "";
+      let company = "Unknown";
+      
+      if (title.includes(" - ")) {
+        const parts = title.split(" - ");
+        title = parts[0]?.trim() || title;
+        company = parts[1]?.trim() || company;
+        company = company.replace(/\|.*$/, "").trim();
+      }
+
+      return {
+        id: uuidv4(),
+        source: sourceType,
+        sourceId: result.position?.toString() || uuidv4(),
+        title: title.replace(/\|.*$/, "").trim(),
+        company,
+        location,
+        description: result.snippet || "",
+        requirements: [],
+        applyUrl: result.link || "",
+        postedDate: new Date().toISOString(),
+        experienceLevel: "mid_senior",
+        employmentType: "full_time",
+        isEasyApply: false,
+        matchScore: 0,
+        skills: extractKeywords(title, result.snippet || ""),
+        status: "new",
+      };
+    });
+  } catch (error) {
+    console.error(`[JobAPI] Organic search failed for ${siteFilter}:`, error);
+    return [];
+  }
+}
+
 // ─── Public aggregator: Google Jobs via SERP (free, no key) ─
 
 async function searchGoogleJobsApi(
@@ -343,11 +402,20 @@ export async function searchJobsViaApi(
         jobs = await searchGoogleJobsApi(keywords, location);
         break;
       case "linkedin":
+        jobs = await searchOrganicJobs(keywords, location, "site:linkedin.com/jobs/view", "linkedin");
+        // Fallback if no jobs found from API
+        if (jobs.length === 0) jobs = getMockJobs(keywords, location).map(j => ({ ...j, source: "linkedin" }));
+        break;
       case "naukri":
+        jobs = await searchOrganicJobs(keywords, location, "site:naukri.com/job-listings", "naukri");
+        if (jobs.length === 0) jobs = getMockJobs(keywords, location).map(j => ({ ...j, source: "naukri" }));
+        break;
       case "company_portal":
+        jobs = await searchOrganicJobs(keywords, location, "inurl:careers OR site:lever.co OR site:greenhouse.io OR site:workday.com", "company_portal");
+        if (jobs.length === 0) jobs = getMockJobs(keywords, location).map(j => ({ ...j, source: "company_portal" }));
+        break;
       case "mock":
-        // Fallback for sources without direct free APIs
-        jobs = getMockJobs(keywords, location).map(j => ({ ...j, source: source as JobSource }));
+        jobs = getMockJobs(keywords, location).map(j => ({ ...j, source: "other" }));
         break;
     }
 
