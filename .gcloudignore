@@ -1,0 +1,13 @@
+.git
+.gitignore
+node_modules
+logs
+uploads
+.env
+.env.example
+dist
+*.md
+Dockerfile
+docker-compose.yml
+render.yaml
+project-data.json

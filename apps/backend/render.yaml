@@ -1,3 +1,6 @@
+# NOTE: This Render config is DEPRECATED.
+# New deployment target: Google Cloud Run.
+# See /cloudbuild.yaml and /Dockerfile in project root.
 services:
   - type: web
     name: agentic-space-backend
