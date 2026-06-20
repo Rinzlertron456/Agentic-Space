@@ -39,3 +39,4 @@ chroma-data/
 
 # Uploads
 uploads/
+.vercel

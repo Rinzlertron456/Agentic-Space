@@ -1,8 +1,11 @@
 {
-  "buildCommand": "cd ../.. && npm run build -w packages/shared && npm run build -w apps/frontend",
+  "buildCommand": "cd ../.. && pnpm install --frozen-lockfile && pnpm build -w packages/shared && pnpm build -w apps/frontend",
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://agentic-space-backend-dc62daq7pq-asia.a.run.app/api/$1" }
+    {
+      "source": "/api/(.*)",
+      "destination": "https://agentic-space-backend-242431895873.asia-southeast1.run.app/api/$1"
+    }
   ]
 }

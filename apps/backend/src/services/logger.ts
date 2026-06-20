@@ -6,8 +6,10 @@ import { v4 as uuidv4 } from "uuid";
 
 const logsDir = config.paths.logs;
 
-if (!fs.existsSync(logsDir)) {
+try {
   fs.mkdirSync(logsDir, { recursive: true });
+} catch {
+  // Cloud Run container filesystem is read-only outside /tmp; writes below will fail gracefully
 }
 
 export function log(
@@ -27,9 +29,6 @@ export function log(
     resumeId,
   };
 
-  const dateStr = new Date().toISOString().split("T")[0];
-  const logFile = path.join(logsDir, `${dateStr}.md`);
-
   const mdLine = [
     `## [${entry.timestamp}] ${action}`,
     `- **Message**: ${message}`,
@@ -41,7 +40,14 @@ export function log(
     .filter(Boolean)
     .join("\n");
 
-  fs.appendFileSync(logFile, mdLine + "\n");
+  const dateStr = new Date().toISOString().split("T")[0];
+  const logFile = path.join(logsDir, `${dateStr}.md`);
+
+  try {
+    fs.appendFileSync(logFile, mdLine + "\n");
+  } catch {
+    // Cloud Run read-only filesystem: soft fail so requests still succeed
+  }
 
   // Sync to Notion (async, non-blocking)
   import("./notion.js").then((m) => m.syncToNotion(entry)).catch(() => {});

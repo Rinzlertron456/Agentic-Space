@@ -15,7 +15,28 @@ const app = express();
 // Middleware
 app.use(
   cors({
-    origin: config.frontendUrl,
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      const allowedOrigins = [
+        config.frontendUrl,
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://agentic-space.vercel.app",
+        "https://job-hunter-pm1k3u0cz-vinayak-santhoshs-projects.vercel.app"
+      ];
+      const isAllowed =
+        allowedOrigins.includes(origin) ||
+        origin.endsWith(".vercel.app") ||
+        /^http:\/\/localhost:\d+$/.test(origin);
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
@@ -89,6 +110,12 @@ app.use("/api/jobs", jobsRouter);
 app.use("/api/tailor", tailorRouter);
 app.use("/api/network", networkRouter);
 app.use("/api/logs", logsRouter);
+
+// Global error handler
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error("Unhandled error:", err);
+  res.status(500).json({ success: false, error: err?.message || "Internal server error" });
+});
 
 // Start server
 app.listen(config.port, async () => {

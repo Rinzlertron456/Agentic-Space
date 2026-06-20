@@ -3,44 +3,80 @@ import path from "path";
 import { config } from "../config.js";
 import type { ParsedResume } from "@agentic-space/shared";
 
-const STORE_DIR = path.join(config.paths.logs, "resumes");
+function safeMkdirSync(dir: string): void {
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch {
+    // Cloud Run can be read-only outside /tmp
+  }
+}
 
-if (!fs.existsSync(STORE_DIR)) {
-  fs.mkdirSync(STORE_DIR, { recursive: true });
+function getStoreDir(): string {
+  const base = process.env.NODE_ENV === "production" ? "/tmp" : config.paths.logs;
+  const dir = path.join(base, "resumes");
+  safeMkdirSync(dir);
+  return dir;
+}
+
+let _storeDir: string | null = null;
+function storeDir(): string {
+  if (!_storeDir) _storeDir = getStoreDir();
+  return _storeDir;
 }
 
 function getFilePath(resumeId: string): string {
-  return path.join(STORE_DIR, `${resumeId}.json`);
+  return path.join(storeDir(), `${resumeId}.json`);
 }
 
 export function saveResume(resume: ParsedResume): void {
-  fs.writeFileSync(getFilePath(resume.id), JSON.stringify(resume, null, 2), "utf-8");
+  const fp = getFilePath(resume.id);
+  try {
+    fs.writeFileSync(fp, JSON.stringify(resume, null, 2), "utf-8");
+  } catch (err) {
+    console.error("[resume-store] writeFileSync failed:", err);
+    throw new Error("Failed to save resume");
+  }
 }
 
 export function getResume(resumeId: string): ParsedResume | null {
   const fp = getFilePath(resumeId);
   if (!fs.existsSync(fp)) return null;
-  return JSON.parse(fs.readFileSync(fp, "utf-8"));
+  try {
+    return JSON.parse(fs.readFileSync(fp, "utf-8"));
+  } catch {
+    return null;
+  }
 }
 
 export function getAllResumes(): ParsedResume[] {
-  if (!fs.existsSync(STORE_DIR)) return [];
-  return fs
-    .readdirSync(STORE_DIR)
-    .filter((f) => f.endsWith(".json"))
-    .map((f) => {
-      try {
-        return JSON.parse(fs.readFileSync(path.join(STORE_DIR, f), "utf-8")) as ParsedResume;
-      } catch {
-        return null;
-      }
-    })
-    .filter((r): r is ParsedResume => r !== null);
+  const dir = storeDir();
+  if (!fs.existsSync(dir)) return [];
+  try {
+    return fs
+      .readdirSync(dir)
+      .filter((f) => f.endsWith(".json"))
+      .map((f) => {
+        try {
+          return JSON.parse(fs.readFileSync(path.join(dir, f), "utf-8")) as ParsedResume;
+        } catch {
+          return null;
+        }
+      })
+      .filter((r): r is ParsedResume => r !== null);
+  } catch (err) {
+    console.error("[resume-store] getAllResumes failed:", err);
+    return [];
+  }
 }
 
 export function deleteResumeFile(resumeId: string): boolean {
   const fp = getFilePath(resumeId);
   if (!fs.existsSync(fp)) return false;
-  fs.unlinkSync(fp);
-  return true;
+  try {
+    fs.unlinkSync(fp);
+    return true;
+  } catch (err) {
+    console.error("[resume-store] delete failed:", err);
+    return false;
+  }
 }

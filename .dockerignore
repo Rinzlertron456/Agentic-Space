@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+**/node_modules/**
+dist
+**/dist
+**/dist/**
+*.tsbuildinfo
+logs
+uploads
+npm-debug.log
+.env
+.git

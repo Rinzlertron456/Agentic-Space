@@ -3,7 +3,11 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
+
+// Only load .env in development — in production (Docker/Cloud Run), env vars are set via the runtime
+if (process.env.NODE_ENV !== "production") {
+  dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
+}
 
 export const config = {
   port: parseInt(process.env.PORT || "3001", 10),
@@ -44,7 +48,10 @@ export const config = {
   },
 
   paths: {
+    // Cloud Run filesystem is read-only except /tmp; use local writable path for uploads
     logs: path.resolve(__dirname, "../../../logs"),
-    uploads: path.resolve(__dirname, "../../../uploads"),
+    uploads: process.env.NODE_ENV === "production"
+      ? "/tmp/uploads"
+      : path.resolve(__dirname, "../../../uploads"),
   },
 };

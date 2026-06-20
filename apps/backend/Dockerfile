@@ -1,3 +1,9 @@
+# ⚠️ DEPRECATED — This Dockerfile uses npm workspaces and is NOT the active build target.
+# The current production deployment (Cloud Run via cloudbuild.yaml) uses
+# the root-level Dockerfile with pnpm workspaces.
+# Keep this file only as a reference for local docker-compose development.
+# See: /Dockerfile (root) and /cloudbuild.yaml
+
 FROM node:22-alpine AS base
 
 FROM base AS deps
@@ -21,5 +27,4 @@ COPY --from=build /app/apps/backend/package.json ./package.json
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages ./packages
 
-EXPOSE 3001
 CMD ["node", "dist/index.js"]

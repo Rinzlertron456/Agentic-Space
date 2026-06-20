@@ -1,0 +1,1 @@
+{"root":["./src/index.ts","./src/constants/company-sites.ts","./src/constants/filters.ts","./src/constants/roles.ts","./src/types/job.ts","./src/types/logs.ts","./src/types/resume.ts","./src/types/search.ts"],"version":"5.9.3"}
