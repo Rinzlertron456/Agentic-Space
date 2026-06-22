@@ -87,10 +87,10 @@ app.get("/api/diagnostics", async (_req, res) => {
     isChromaAvailable().then((ok) => ({ ok, url: config.chroma.url })),
     isOllamaAvailable().then((ok) => ({
       ok,
-      provider: config.gemini.apiKey ? "Gemini" : "OpenAI",
-      model: config.gemini.apiKey ? config.gemini.model : config.openai.model,
-      embedModel: config.gemini.apiKey ? config.gemini.embedModel : config.openai.embedModel,
-      apiKeySet: Boolean(config.gemini.apiKey || config.openai.apiKey),
+      provider: (config.gemini.apiKey || config.gemini.useAdc) ? "Gemini" : "OpenAI",
+      model: (config.gemini.apiKey || config.gemini.useAdc) ? config.gemini.model : config.openai.model,
+      embedModel: (config.gemini.apiKey || config.gemini.useAdc) ? config.gemini.embedModel : config.openai.embedModel,
+      apiKeySet: Boolean(config.gemini.apiKey || config.gemini.useAdc || config.openai.apiKey),
     })),
   ]);
 
@@ -128,17 +128,19 @@ app.listen(config.port, async () => {
   const llmOk = await isOllamaAvailable();
   const chromaOk = await isChromaAvailable();
   
-  const provider = config.gemini.apiKey ? "Gemini" : "OpenAI";
-  const model = config.gemini.apiKey ? config.gemini.model : config.openai.model;
-  const embedModel = config.gemini.apiKey ? config.gemini.embedModel : config.openai.embedModel;
+  const isGemini = Boolean(config.gemini.apiKey || config.gemini.useAdc);
+  const provider = isGemini ? "Gemini" : "OpenAI";
+  const model = isGemini ? config.gemini.model : config.openai.model;
+  const embedModel = isGemini ? config.gemini.embedModel : config.openai.embedModel;
 
   console.log(`   ${provider}: ${llmOk ? "✅ ONLINE" : "❌ OFFLINE"} (model: ${model}, embed: ${embedModel})`);
   if (!llmOk) {
-    console.log(`   ℹ️  Set GEMINI_API_KEY or OPENAI_API_KEY environment variable to enable LLM features.`);
+    console.log(`   ℹ️  Set GEMINI_API_KEY, enable Google Cloud ADC, or set OPENAI_API_KEY to enable LLM features.`);
     console.log(`   ℹ️  When Gemini/OpenAI is offline, local Ollama at ${config.ollama.host} is tried as fallback.`);
   }
   console.log(`   ChromaDB: ${chromaOk ? "✅ ONLINE" : "❌ OFFLINE"} (host: ${config.chroma.url})`);
 });
+
 
 
 export default app;

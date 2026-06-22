@@ -24,6 +24,9 @@ export const config = {
     model: process.env.GEMINI_MODEL || "gemini-1.5-flash",
     embedModel: process.env.GEMINI_EMBED_MODEL || "text-embedding-004",
     baseUrl: process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai/",
+    useAdc: process.env.GEMINI_USE_ADC !== undefined
+      ? process.env.GEMINI_USE_ADC === "true"
+      : !process.env.GEMINI_API_KEY, // default to true if no API key is set
   },
 
   ollama: {

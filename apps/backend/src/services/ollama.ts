@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { GoogleAuth } from "google-auth-library";
 import { config } from "../config.js";
 
 /** HTTP timeout for OpenAI API calls */
@@ -6,15 +7,62 @@ const OPENAI_TIMEOUT_MS = 60_000;
 
 let _openai: OpenAI | null = null;
 let _llmAvailable: boolean | null = null;
+let _currentClientType: "openai" | "gemini" | "gemini-adc" | null = null;
 
-function getOpenAI(): OpenAI {
-  if (!_openai) {
-    const isGemini = Boolean(config.gemini.apiKey);
+let _googleAuth: GoogleAuth | null = null;
+let _tokenExpiry: number = 0;
+let _lastToken: string = "";
+
+async function getGoogleAccessToken(): Promise<string> {
+  const now = Date.now();
+  if (_lastToken && _tokenExpiry > now + 300_000) {
+    return _lastToken;
+  }
+
+  if (!_googleAuth) {
+    _googleAuth = new GoogleAuth({
+      scopes: "https://www.googleapis.com/auth/cloud-platform",
+    });
+  }
+
+  const client = await _googleAuth.getClient();
+  const tokenResponse = await client.getAccessToken();
+  const token = tokenResponse.token;
+  if (!token) {
+    throw new Error("Failed to retrieve Google Cloud access token");
+  }
+
+  _lastToken = token;
+  const res = tokenResponse as any;
+  _tokenExpiry = res.expiry_date || (Date.now() + 3600_000);
+  
+  return token;
+}
+
+async function getOpenAI(): Promise<OpenAI> {
+  const isGemini = Boolean(config.gemini.apiKey || config.gemini.useAdc);
+  const clientType = isGemini 
+    ? (config.gemini.useAdc ? "gemini-adc" : "gemini")
+    : "openai";
+
+  if (clientType === "gemini-adc") {
+    const token = await getGoogleAccessToken();
+    if (!_openai || _currentClientType !== "gemini-adc" || _openai.apiKey !== token) {
+      _openai = new OpenAI({
+        apiKey: token,
+        baseURL: config.gemini.baseUrl,
+        timeout: OPENAI_TIMEOUT_MS,
+        maxRetries: 1,
+      });
+      _currentClientType = "gemini-adc";
+    }
+    return _openai;
+  }
+
+  if (!_openai || _currentClientType !== clientType) {
     const apiKey = isGemini ? config.gemini.apiKey : config.openai.apiKey;
-    
     if (!apiKey) {
-      // Will be caught by caller and fallback to Ollama
-      throw new Error("No OpenAI or Gemini API key configured");
+      throw new Error("No OpenAI/Gemini API key configured and ADC is disabled");
     }
     _openai = new OpenAI({
       apiKey: apiKey,
@@ -22,6 +70,7 @@ function getOpenAI(): OpenAI {
       timeout: OPENAI_TIMEOUT_MS,
       maxRetries: 1,
     });
+    _currentClientType = clientType;
   }
   return _openai;
 }
@@ -36,19 +85,20 @@ export async function isOllamaAvailable(): Promise<boolean> {
   if (_llmAvailable !== null) return _llmAvailable;
 
   // Try Gemini or OpenAI first
-  if (config.gemini.apiKey || config.openai.apiKey) {
+  if (config.gemini.apiKey || config.gemini.useAdc || config.openai.apiKey) {
     try {
-      const models = await getOpenAI().models.list();
+      const openaiClient = await getOpenAI();
+      const models = await openaiClient.models.list();
       if (models.data.length > 0) {
         _llmAvailable = true;
-        const providerName = config.gemini.apiKey ? "Gemini" : "OpenAI";
-        const modelName = config.gemini.apiKey ? config.gemini.model : config.openai.model;
+        const providerName = (config.gemini.apiKey || config.gemini.useAdc) ? "Gemini" : "OpenAI";
+        const modelName = (config.gemini.apiKey || config.gemini.useAdc) ? config.gemini.model : config.openai.model;
         console.log(`[LLM] ${providerName} ✅ ONLINE (model: ${modelName})`);
         return true;
       }
     } catch (err: any) {
-      const providerName = config.gemini.apiKey ? "Gemini" : "OpenAI";
-      console.warn(`[LLM] ${providerName} key configured but API unreachable — will try Ollama fallback. Error: ${err?.message}`);
+      const providerName = (config.gemini.apiKey || config.gemini.useAdc) ? "Gemini" : "OpenAI";
+      console.warn(`[LLM] ${providerName} configured but API unreachable — will try Ollama fallback. Error: ${err?.message}`);
     }
   }
 
@@ -70,7 +120,7 @@ export async function isOllamaAvailable(): Promise<boolean> {
   }
 
   _llmAvailable = false;
-  console.warn("[LLM] No LLM backend available (Gemini/OpenAI API key not set and Ollama unreachable)");
+  console.warn("[LLM] No LLM backend available (Gemini/OpenAI API key not set, ADC unavailable, and Ollama unreachable)");
   return false;
 }
 
@@ -87,10 +137,11 @@ export async function generate(prompt: string): Promise<string> {
   await checkOrThrow();
 
   // Try Gemini/OpenAI first
-  if (config.gemini.apiKey || config.openai.apiKey) {
+  if (config.gemini.apiKey || config.gemini.useAdc || config.openai.apiKey) {
     try {
-      const model = config.gemini.apiKey ? config.gemini.model : config.openai.model;
-      const response = await getOpenAI().chat.completions.create({
+      const model = (config.gemini.apiKey || config.gemini.useAdc) ? config.gemini.model : config.openai.model;
+      const openaiClient = await getOpenAI();
+      const response = await openaiClient.chat.completions.create({
         model: model,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.3,
@@ -99,7 +150,7 @@ export async function generate(prompt: string): Promise<string> {
       const content = response.choices[0]?.message?.content;
       if (content) return content;
     } catch (err: any) {
-      const providerName = config.gemini.apiKey ? "Gemini" : "OpenAI";
+      const providerName = (config.gemini.apiKey || config.gemini.useAdc) ? "Gemini" : "OpenAI";
       console.warn(`[LLM] ${providerName} generate failed, falling back to Ollama. Error: ${err?.message}`);
     }
   }
@@ -142,16 +193,17 @@ export async function embed(text: string): Promise<number[]> {
   await checkOrThrow();
 
   // Try Gemini/OpenAI first
-  if (config.gemini.apiKey || config.openai.apiKey) {
+  if (config.gemini.apiKey || config.gemini.useAdc || config.openai.apiKey) {
     try {
-      const model = config.gemini.apiKey ? config.gemini.embedModel : config.openai.embedModel;
-      const response = await getOpenAI().embeddings.create({
+      const model = (config.gemini.apiKey || config.gemini.useAdc) ? config.gemini.embedModel : config.openai.embedModel;
+      const openaiClient = await getOpenAI();
+      const response = await openaiClient.embeddings.create({
         model: model,
         input: text,
       });
       return response.data[0].embedding;
     } catch (err: any) {
-      const providerName = config.gemini.apiKey ? "Gemini" : "OpenAI";
+      const providerName = (config.gemini.apiKey || config.gemini.useAdc) ? "Gemini" : "OpenAI";
       console.warn(`[LLM] ${providerName} embedding failed, falling back to Ollama. Error: ${err?.message}`);
     }
   }
@@ -195,4 +247,5 @@ async function checkOrThrow(): Promise<void> {
     );
   }
 }
+
 

@@ -47,6 +47,6 @@ steps:
       - "--set-env-vars=ADZUNA_APP_ID=43c9adf7"
       - "--set-env-vars=ADZUNA_APP_KEY=906250fd40354cadcf82c1ca40b3ddfb"
       - "--set-secrets=OPENAI_API_KEY=openai-api-key:latest"
-      - "--set-secrets=GEMINI_API_KEY=gemini-api-key:latest"
 
 timeout: 900s
+
