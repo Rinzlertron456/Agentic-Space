@@ -82,14 +82,15 @@ async function checkOllama() {
 }
 
 app.get("/api/diagnostics", async (_req, res) => {
-  const [ollama, chroma, openai] = await Promise.all([
+  const [ollama, chroma, llm] = await Promise.all([
     checkOllama(),
     isChromaAvailable().then((ok) => ({ ok, url: config.chroma.url })),
     isOllamaAvailable().then((ok) => ({
       ok,
-      model: config.openai.model,
-      embedModel: config.openai.embedModel,
-      apiKeySet: Boolean(config.openai.apiKey),
+      provider: config.gemini.apiKey ? "Gemini" : "OpenAI",
+      model: config.gemini.apiKey ? config.gemini.model : config.openai.model,
+      embedModel: config.gemini.apiKey ? config.gemini.embedModel : config.openai.embedModel,
+      apiKeySet: Boolean(config.gemini.apiKey || config.openai.apiKey),
     })),
   ]);
 
@@ -100,7 +101,7 @@ app.get("/api/diagnostics", async (_req, res) => {
     frontendUrl: config.frontendUrl,
     chroma,
     ollama,
-    openai,
+    openai: llm,
   });
 });
 
@@ -124,14 +125,20 @@ app.listen(config.port, async () => {
   console.log(`   Frontend: ${config.frontendUrl}`);
 
   // Check external service availability at startup
-  const openaiOk = await isOllamaAvailable();
+  const llmOk = await isOllamaAvailable();
   const chromaOk = await isChromaAvailable();
-  console.log(`   OpenAI: ${openaiOk ? "✅ ONLINE" : "❌ OFFLINE"} (model: ${config.openai.model}, embed: ${config.openai.embedModel})`);
-  if (!openaiOk) {
-    console.log(`   ℹ️  Set OPENAI_API_KEY environment variable to enable LLM features.`);
-    console.log(`   ℹ️  When OpenAI is offline, local Ollama at ${config.ollama.host} is tried as fallback.`);
+  
+  const provider = config.gemini.apiKey ? "Gemini" : "OpenAI";
+  const model = config.gemini.apiKey ? config.gemini.model : config.openai.model;
+  const embedModel = config.gemini.apiKey ? config.gemini.embedModel : config.openai.embedModel;
+
+  console.log(`   ${provider}: ${llmOk ? "✅ ONLINE" : "❌ OFFLINE"} (model: ${model}, embed: ${embedModel})`);
+  if (!llmOk) {
+    console.log(`   ℹ️  Set GEMINI_API_KEY or OPENAI_API_KEY environment variable to enable LLM features.`);
+    console.log(`   ℹ️  When Gemini/OpenAI is offline, local Ollama at ${config.ollama.host} is tried as fallback.`);
   }
   console.log(`   ChromaDB: ${chromaOk ? "✅ ONLINE" : "❌ OFFLINE"} (host: ${config.chroma.url})`);
 });
+
 
 export default app;

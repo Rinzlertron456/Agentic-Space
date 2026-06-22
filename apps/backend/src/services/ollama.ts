@@ -9,12 +9,16 @@ let _llmAvailable: boolean | null = null;
 
 function getOpenAI(): OpenAI {
   if (!_openai) {
-    if (!config.openai.apiKey) {
+    const isGemini = Boolean(config.gemini.apiKey);
+    const apiKey = isGemini ? config.gemini.apiKey : config.openai.apiKey;
+    
+    if (!apiKey) {
       // Will be caught by caller and fallback to Ollama
-      throw new Error("OPENAI_API_KEY not configured");
+      throw new Error("No OpenAI or Gemini API key configured");
     }
     _openai = new OpenAI({
-      apiKey: config.openai.apiKey,
+      apiKey: apiKey,
+      baseURL: isGemini ? config.gemini.baseUrl : undefined,
       timeout: OPENAI_TIMEOUT_MS,
       maxRetries: 1,
     });
@@ -26,22 +30,25 @@ function getOpenAI(): OpenAI {
 
 /**
  * Check whether any LLM backend is available.
- * Prioritizes OpenAI. Falls back to local Ollama if OpenAI is not configured.
+ * Prioritizes Gemini/OpenAI. Falls back to local Ollama if not configured.
  */
 export async function isOllamaAvailable(): Promise<boolean> {
   if (_llmAvailable !== null) return _llmAvailable;
 
-  // Try OpenAI first
-  if (config.openai.apiKey) {
+  // Try Gemini or OpenAI first
+  if (config.gemini.apiKey || config.openai.apiKey) {
     try {
       const models = await getOpenAI().models.list();
       if (models.data.length > 0) {
         _llmAvailable = true;
-        console.log(`[LLM] OpenAI ✅ ONLINE (model: ${config.openai.model})`);
+        const providerName = config.gemini.apiKey ? "Gemini" : "OpenAI";
+        const modelName = config.gemini.apiKey ? config.gemini.model : config.openai.model;
+        console.log(`[LLM] ${providerName} ✅ ONLINE (model: ${modelName})`);
         return true;
       }
-    } catch {
-      console.warn("[LLM] OpenAI key configured but API unreachable — will try Ollama fallback");
+    } catch (err: any) {
+      const providerName = config.gemini.apiKey ? "Gemini" : "OpenAI";
+      console.warn(`[LLM] ${providerName} key configured but API unreachable — will try Ollama fallback. Error: ${err?.message}`);
     }
   }
 
@@ -63,7 +70,7 @@ export async function isOllamaAvailable(): Promise<boolean> {
   }
 
   _llmAvailable = false;
-  console.warn("[LLM] No LLM backend available (OpenAI API key not set and Ollama unreachable)");
+  console.warn("[LLM] No LLM backend available (Gemini/OpenAI API key not set and Ollama unreachable)");
   return false;
 }
 
@@ -79,19 +86,21 @@ export function resetOllamaAvailability(): void {
 export async function generate(prompt: string): Promise<string> {
   await checkOrThrow();
 
-  // Try OpenAI first
-  if (config.openai.apiKey) {
+  // Try Gemini/OpenAI first
+  if (config.gemini.apiKey || config.openai.apiKey) {
     try {
+      const model = config.gemini.apiKey ? config.gemini.model : config.openai.model;
       const response = await getOpenAI().chat.completions.create({
-        model: config.openai.model,
+        model: model,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.3,
         max_tokens: 2048,
       });
       const content = response.choices[0]?.message?.content;
       if (content) return content;
-    } catch {
-      console.warn("[LLM] OpenAI generate failed, falling back to Ollama");
+    } catch (err: any) {
+      const providerName = config.gemini.apiKey ? "Gemini" : "OpenAI";
+      console.warn(`[LLM] ${providerName} generate failed, falling back to Ollama. Error: ${err?.message}`);
     }
   }
 
@@ -120,8 +129,8 @@ export async function generate(prompt: string): Promise<string> {
   } catch (error) {
     // Both backends failed — mark unavailable to short-circuit future calls
     _llmAvailable = false;
-    console.error("[LLM] Both OpenAI and Ollama unavailable for generate");
-    throw new Error("No LLM backend available (OpenAI and Ollama both unreachable)");
+    console.error("[LLM] Both Gemini/OpenAI and Ollama unavailable for generate");
+    throw new Error("No LLM backend available (Gemini/OpenAI and Ollama both unreachable)");
   } finally {
     clearTimeout(timeout);
   }
@@ -132,16 +141,18 @@ export async function generate(prompt: string): Promise<string> {
 export async function embed(text: string): Promise<number[]> {
   await checkOrThrow();
 
-  // Try OpenAI first
-  if (config.openai.apiKey) {
+  // Try Gemini/OpenAI first
+  if (config.gemini.apiKey || config.openai.apiKey) {
     try {
+      const model = config.gemini.apiKey ? config.gemini.embedModel : config.openai.embedModel;
       const response = await getOpenAI().embeddings.create({
-        model: config.openai.embedModel,
+        model: model,
         input: text,
       });
       return response.data[0].embedding;
-    } catch {
-      console.warn("[LLM] OpenAI embedding failed, falling back to Ollama");
+    } catch (err: any) {
+      const providerName = config.gemini.apiKey ? "Gemini" : "OpenAI";
+      console.warn(`[LLM] ${providerName} embedding failed, falling back to Ollama. Error: ${err?.message}`);
     }
   }
 
@@ -168,8 +179,8 @@ export async function embed(text: string): Promise<number[]> {
     return data.embedding;
   } catch (error) {
     _llmAvailable = false;
-    console.error("[LLM] Both OpenAI and Ollama unavailable for embedding");
-    throw new Error("No LLM backend available (OpenAI and Ollama both unreachable)");
+    console.error("[LLM] Both Gemini/OpenAI and Ollama unavailable for embedding");
+    throw new Error("No LLM backend available (Gemini/OpenAI and Ollama both unreachable)");
   } finally {
     clearTimeout(timeout);
   }
@@ -180,7 +191,8 @@ export async function embed(text: string): Promise<number[]> {
 async function checkOrThrow(): Promise<void> {
   if (!(await isOllamaAvailable())) {
     throw new Error(
-      "No LLM backend available. Set OPENAI_API_KEY or ensure Ollama is running.",
+      "No LLM backend available. Set GEMINI_API_KEY, OPENAI_API_KEY, or ensure Ollama is running.",
     );
   }
 }
+

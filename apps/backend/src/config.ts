@@ -19,6 +19,13 @@ export const config = {
     embedModel: process.env.OPENAI_EMBED_MODEL || "text-embedding-3-small",
   },
 
+  gemini: {
+    apiKey: process.env.GEMINI_API_KEY || "",
+    model: process.env.GEMINI_MODEL || "gemini-1.5-flash",
+    embedModel: process.env.GEMINI_EMBED_MODEL || "text-embedding-004",
+    baseUrl: process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai/",
+  },
+
   ollama: {
     host: process.env.OLLAMA_HOST || "http://localhost:11434",
     model: process.env.OLLAMA_MODEL || "mistral",

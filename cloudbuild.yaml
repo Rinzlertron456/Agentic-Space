@@ -39,10 +39,14 @@ steps:
       - "--set-env-vars=FRONTEND_URL=https://job-hunter-pm1k3u0cz-vinayak-santhoshs-projects.vercel.app"
       - "--set-env-vars=OPENAI_MODEL=gpt-4o-mini"
       - "--set-env-vars=OPENAI_EMBED_MODEL=text-embedding-3-small"
+      - "--set-env-vars=GEMINI_MODEL=gemini-1.5-flash"
+      - "--set-env-vars=GEMINI_EMBED_MODEL=text-embedding-004"
+      - "--set-env-vars=GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/"
       - "--set-env-vars=BROWSER_HEADLESS=true"
       - "--set-env-vars=SERPAPI_KEY=146ce72bb02ee9fb2225a7572a9116d9b0cd8e1a271083a9bd98f5b82e3038ea"
       - "--set-env-vars=ADZUNA_APP_ID=43c9adf7"
       - "--set-env-vars=ADZUNA_APP_KEY=906250fd40354cadcf82c1ca40b3ddfb"
       - "--set-secrets=OPENAI_API_KEY=openai-api-key:latest"
+      - "--set-secrets=GEMINI_API_KEY=gemini-api-key:latest"
 
 timeout: 900s
